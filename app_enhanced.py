@@ -6,6 +6,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
+import folium
+from streamlit_folium import st_folium
 
 # ── Config ──────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -459,121 +461,117 @@ if page == "Dashboard":
 elif page == "Pakistan Map":
     st.markdown("# 🗺️ Pakistan Clinic Network")
     st.markdown(
-        "<span style='color:var(--text-muted)'>Select a city to view individual clinics</span>",
+        "<span style='color:var(--text-muted)'>Select a city to view individual clinics on OpenStreetMap</span>",
         unsafe_allow_html=True,
     )
 
-    # City coordinates with zoom ranges
-    city_coords = {
-        "All": {"lat": (23, 37), "lon": (60, 78), "center": (30, 70)},
-        "Karachi": {"lat": (24, 26), "lon": (66, 68), "center": (24.86, 67.01)},
-        "Lahore": {"lat": (31, 32), "lon": (74, 75), "center": (31.55, 74.35)},
-        "Islamabad": {"lat": (33, 34.5), "lon": (72.5, 74), "center": (33.72, 73.06)},
-        "Peshawar": {
-            "lat": (33.5, 34.5),
-            "lon": (70.5, 72.5),
-            "center": (34.01, 71.57),
-        },
-        "Multan": {"lat": (29.5, 30.5), "lon": (71, 72), "center": (30.20, 71.47)},
+    # City center coordinates and zoom levels
+    city_centers = {
+        "All": {"center": [30, 70], "zoom": 5},
+        "Karachi": {"center": [24.86, 67.01], "zoom": 12},
+        "Lahore": {"center": [31.55, 74.35], "zoom": 12},
+        "Islamabad": {"center": [33.72, 73.06], "zoom": 12},
+        "Peshawar": {"center": [34.01, 71.57], "zoom": 12},
+        "Multan": {"center": [30.20, 71.47], "zoom": 12},
     }
 
     # City dropdown
     selected_city = st.selectbox(
-        "Select City", list(city_coords.keys()), key="map_city_select"
+        "Select City", list(city_centers.keys()), key="map_city_select"
     )
 
-    # Get clinic-level data
-    clinic_data = (
-        df_all.groupby(["clinic_name", "city", "clinic_id"])
-        .agg(
-            appointments=("appt_id", "count"),
-            revenue=("fee_charged", "sum"),
-            completed=("status", lambda x: (x == "completed").sum()),
-        )
-        .reset_index()
+    # Get clinic-level data from database
+    con = sqlite3.connect("meditrack.db")
+    clinic_df = pd.read_sql(
+        """
+        SELECT c.clinic_name, c.city, c.clinic_id, 
+               COUNT(a.appt_id) as appointments,
+               SUM(CASE WHEN a.status='completed' THEN a.fee_charged ELSE 0 END) as revenue,
+               SUM(CASE WHEN a.status='completed' THEN 1 ELSE 0 END) as completed
+        FROM clinics c
+        LEFT JOIN appointments a ON c.clinic_id = a.clinic_id
+        GROUP BY c.clinic_id
+    """,
+        con,
     )
-    clinic_data["completion_rate"] = (
-        clinic_data["completed"] / clinic_data["appointments"] * 100
-    ).round(1)
-
-    # Add approximate coordinates for each clinic (using city center + random offset for demo)
-    np.random.seed(42)
-    clinic_coords = {}
-    for city, coords in city_coords.items():
-        if city != "All":
-            city_center = coords["center"]
-            n_clinics = len(clinic_data[clinic_data.city == city])
-            for i, clinic in enumerate(clinic_data[clinic_data.city == city].index):
-                lat_offset = np.random.uniform(-0.1, 0.1)
-                lon_offset = np.random.uniform(-0.1, 0.1)
-                clinic_coords[clinic] = (
-                    city_center[0] + lat_offset,
-                    city_center[1] + lon_offset,
-                )
-
-    clinic_data["lat"] = clinic_data.index.map(
-        lambda x: clinic_coords.get(x, (30, 70))[0]
-    )
-    clinic_data["lon"] = clinic_data.index.map(
-        lambda x: clinic_coords.get(x, (30, 70))[1]
-    )
+    con.close()
 
     # Filter by selected city
     if selected_city != "All":
-        clinic_data = clinic_data[clinic_data.city == selected_city]
+        clinic_df = clinic_df[clinic_df.city == selected_city]
 
-    # Get zoom range
-    zoom = city_coords[selected_city]
+    clinic_df["completion_rate"] = (
+        clinic_df["completed"] / clinic_df["appointments"] * 100
+    ).round(1)
 
-    # Create figure
-    fig = px.scatter_geo(
-        clinic_data,
-        lat="lat",
-        lon="lon",
-        size="revenue",
-        color="revenue",
-        color_continuous_scale=["#0d2626", "#0d9488", "#14ffec"],
-        hover_name="clinic_name",
-        hover_data={
-            "city": True,
-            "appointments": True,
-            "revenue": ":,.0f",
-            "completion_rate": True,
-            "lat": False,
-            "lon": False,
-        },
-        size_max=30,
-        scope="asia",
-    )
-    fig.update_layout(
-        plot_bgcolor="#0a0f0d",
-        paper_bgcolor="#0a0f0d",
-        geo=dict(
-            bgcolor="#0a0f0d",
-            showland=True,
-            landcolor="#1e3a35",
-            showocean=True,
-            oceancolor="#0d1411",
-            showcountries=True,
-            countrycolor="#134e4a",
-            projection={"type": "mercator"},
-            lataxis_range=zoom["lat"],
-            lonaxis_range=zoom["lon"],
-        ),
-    )
+    # Add approximate coordinates (using city center + random offset)
+    np.random.seed(42)
+    city_offsets = {
+        "All": (30, 70),
+        "Karachi": (24.86, 67.01),
+        "Lahore": (31.55, 74.35),
+        "Islamabad": (33.72, 73.06),
+        "Peshawar": (34.01, 71.57),
+        "Multan": (30.20, 71.47),
+    }
 
+    base_center = city_offsets.get(selected_city, (30, 70))
+    clinic_df["lat"] = base_center[0] + np.random.uniform(-0.05, 0.05, len(clinic_df))
+    clinic_df["lon"] = base_center[1] + np.random.uniform(-0.05, 0.05, len(clinic_df))
+
+    # Get center and zoom for selected city
+    center = city_centers[selected_city]["center"]
+    zoom = city_centers[selected_city]["zoom"]
+
+    # Create Folium map with OpenStreetMap tiles
+    m = folium.Map(location=center, zoom_start=zoom, tiles="OpenStreetMap")
+
+    # Add clinic markers
+    for _, clinic in clinic_df.iterrows():
+        # Color based on revenue
+        if clinic["revenue"] > 5000000:
+            color = "darkgreen"
+            icon = "star"
+        elif clinic["revenue"] > 1000000:
+            color = "green"
+            icon = "plus"
+        elif clinic["revenue"] > 500000:
+            color = "orange"
+            icon = "minus"
+        else:
+            color = "red"
+            icon = "home"
+
+        popup_html = f"""
+        <div style="width:200px;">
+            <h4>{clinic["clinic_name"]}</h4>
+            <b>City:</b> {clinic["city"]}<br>
+            <b>Revenue:</b> ₨{clinic["revenue"]:,.0f}<br>
+            <b>Appointments:</b> {clinic["appointments"]}<br>
+            <b>Completion:</b> {clinic["completion_rate"]}%
+        </div>
+        """
+
+        folium.Marker(
+            location=[clinic["lat"], clinic["lon"]],
+            popup=folium.Popup(popup_html, max_width=250),
+            tooltip=clinic["clinic_name"],
+            icon=folium.Icon(color=color, icon=icon),
+        ).add_to(m)
+
+    # Display the map
+    st_folium(m, width=800, height=500)
+
+    # Right panel with clinic stats
     col1, col2 = st.columns([2, 1])
-    with col1:
-        st.plotly_chart(fig, use_container_width=True)
-
     with col2:
         st.markdown(f"### {selected_city} Clinics")
-        total_rev = clinic_data["revenue"].sum()
-        total_appts = clinic_data["appointments"].sum()
+        total_rev = clinic_df["revenue"].sum()
+        total_appts = clinic_df["appointments"].sum()
         st.metric("Total Revenue", f"₨{total_rev / 1e6:.1f}M")
         st.metric("Appointments", f"{total_appts:,}")
         st.markdown("---")
-        for _, row in clinic_data.iterrows():
+        for _, row in clinic_df.iterrows():
             st.markdown(
                 f"""
                 <div class="metric-card" style="padding:10px 14px;margin:6px 0;">
