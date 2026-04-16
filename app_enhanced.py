@@ -459,43 +459,91 @@ if page == "Dashboard":
 elif page == "Pakistan Map":
     st.markdown("# 🗺️ Pakistan Clinic Network")
     st.markdown(
-        "<span style='color:var(--text-muted)'>Interactive map · Click cities to drill down</span>",
+        "<span style='color:var(--text-muted)'>Select a city to view individual clinics</span>",
         unsafe_allow_html=True,
     )
 
-    city_rev = get_city_revenue()
-    max_rev = max(city_rev.values()) if city_rev else 1
-
+    # City coordinates with zoom ranges
     city_coords = {
-        "Karachi": (24.86, 67.01),
-        "Lahore": (31.55, 74.35),
-        "Islamabad": (33.72, 73.06),
-        "Peshawar": (34.01, 71.57),
-        "Multan": (30.20, 71.47),
+        "All": {"lat": (23, 37), "lon": (60, 78), "center": (30, 70)},
+        "Karachi": {"lat": (24, 26), "lon": (66, 68), "center": (24.86, 67.01)},
+        "Lahore": {"lat": (31, 32), "lon": (74, 75), "center": (31.55, 74.35)},
+        "Islamabad": {"lat": (33, 34.5), "lon": (72.5, 74), "center": (33.72, 73.06)},
+        "Peshawar": {
+            "lat": (33.5, 34.5),
+            "lon": (70.5, 72.5),
+            "center": (34.01, 71.57),
+        },
+        "Multan": {"lat": (29.5, 30.5), "lon": (71, 72), "center": (30.20, 71.47)},
     }
 
-    geo_df = pd.DataFrame(
-        [
-            {
-                "city": city,
-                "lat": coords[0],
-                "lon": coords[1],
-                "revenue": city_rev.get(city, 0),
-            }
-            for city, coords in city_coords.items()
-        ]
+    # City dropdown
+    selected_city = st.selectbox(
+        "Select City", list(city_coords.keys()), key="map_city_select"
     )
+
+    # Get clinic-level data
+    clinic_data = (
+        df_all.groupby(["clinic_name", "city", "clinic_id"])
+        .agg(
+            appointments=("appt_id", "count"),
+            revenue=("fee_charged", "sum"),
+            completed=("status", lambda x: (x == "completed").sum()),
+        )
+        .reset_index()
+    )
+    clinic_data["completion_rate"] = (
+        clinic_data["completed"] / clinic_data["appointments"] * 100
+    ).round(1)
+
+    # Add approximate coordinates for each clinic (using city center + random offset for demo)
+    np.random.seed(42)
+    clinic_coords = {}
+    for city, coords in city_coords.items():
+        if city != "All":
+            city_center = coords["center"]
+            n_clinics = len(clinic_data[clinic_data.city == city])
+            for i, clinic in enumerate(clinic_data[clinic_data.city == city].index):
+                lat_offset = np.random.uniform(-0.1, 0.1)
+                lon_offset = np.random.uniform(-0.1, 0.1)
+                clinic_coords[clinic] = (
+                    city_center[0] + lat_offset,
+                    city_center[1] + lon_offset,
+                )
+
+    clinic_data["lat"] = clinic_data.index.map(
+        lambda x: clinic_coords.get(x, (30, 70))[0]
+    )
+    clinic_data["lon"] = clinic_data.index.map(
+        lambda x: clinic_coords.get(x, (30, 70))[1]
+    )
+
+    # Filter by selected city
+    if selected_city != "All":
+        clinic_data = clinic_data[clinic_data.city == selected_city]
+
+    # Get zoom range
+    zoom = city_coords[selected_city]
+
+    # Create figure
     fig = px.scatter_geo(
-        geo_df,
+        clinic_data,
         lat="lat",
         lon="lon",
         size="revenue",
         color="revenue",
         color_continuous_scale=["#0d2626", "#0d9488", "#14ffec"],
-        hover_name="city",
+        hover_name="clinic_name",
+        hover_data={
+            "city": True,
+            "appointments": True,
+            "revenue": ":,.0f",
+            "completion_rate": True,
+            "lat": False,
+            "lon": False,
+        },
         size_max=30,
         scope="asia",
-        fitbounds="locations",
     )
     fig.update_layout(
         plot_bgcolor="#0a0f0d",
@@ -509,8 +557,8 @@ elif page == "Pakistan Map":
             showcountries=True,
             countrycolor="#134e4a",
             projection={"type": "mercator"},
-            lataxis_range=[23, 37],
-            lonaxis_range=[60, 78],
+            lataxis_range=zoom["lat"],
+            lonaxis_range=zoom["lon"],
         ),
     )
 
@@ -519,21 +567,24 @@ elif page == "Pakistan Map":
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.markdown("### City Performance")
-        for city, rev in sorted(city_rev.items(), key=lambda x: x[1], reverse=True):
-            pct = rev / max_rev * 100
+        st.markdown(f"### {selected_city} Clinics")
+        total_rev = clinic_data["revenue"].sum()
+        total_appts = clinic_data["appointments"].sum()
+        st.metric("Total Revenue", f"₨{total_rev / 1e6:.1f}M")
+        st.metric("Appointments", f"{total_appts:,}")
+        st.markdown("---")
+        for _, row in clinic_data.iterrows():
             st.markdown(
                 f"""
-            <div class="metric-card" style="padding:12px 16px;margin:8px 0;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span style="color:var(--teal-light);font-weight:600;">{city}</span>
-                    <span style="color:var(--teal-neon);">₨{rev / 1e6:.1f}M</span>
+                <div class="metric-card" style="padding:10px 14px;margin:6px 0;">
+                    <div style="font-weight:600;color:#ccfbf1;font-size:0.9rem;">{row["clinic_name"]}</div>
+                    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                        <span style="color:#0d9488;">₨{row["revenue"] / 1e6:.1f}M</span>
+                        <span style="color:#94a3b8;">{row["appointments"]} appts</span>
+                        <span style="color:#14ffec;">{row["completion_rate"]}%</span>
+                    </div>
                 </div>
-                <div style="background:var(--bg-dark);height:6px;border-radius:3px;margin-top:8px;">
-                    <div style="background:linear-gradient(90deg,var(--teal),var(--teal-neon));height:100%;border-radius:3px;width:{pct}%;"></div>
-                </div>
-            </div>
-            """,
+                """,
                 unsafe_allow_html=True,
             )
 
