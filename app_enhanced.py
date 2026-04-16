@@ -508,15 +508,15 @@ elif page == "Doctor Scorecards":
                             tickfont=dict(color="#94a3b8"),
                             gridcolor="#1e3a35",
                         ),
-                        bgcolor="transparent",
+                        bgcolor="#0a0f0d",
                     ),
-                    paper_bgcolor="transparent",
+                    paper_bgcolor="#0a0f0d",
                     margin=dict(t=30, b=20, l=20, r=20),
                     height=250,
                     showlegend=False,
                     title=dict(
-                        text=f"{row['doctor_name']}<br><span style='font-size:10px;color:var(--text-dim)'>{row['department']} · {row['city']}</span>",
-                        font=dict(color="var(--teal-light)", size=14),
+                        text=f"{row['doctor_name']}<br><span style='font-size:10px;color:#64748b'>{row['department']} · {row['city']}</span>",
+                        font=dict(color="#ccfbf1", size=14),
                     ),
                 )
                 st.plotly_chart(fig, use_container_width=True)
@@ -835,7 +835,7 @@ elif page == "Campaign Builder":
             no_show_rate=("no_show_rate", "first"),
             upcoming=("appt_id", "count"),
         )
-        .reset_index()
+        .reset_index(drop=True)
     )
 
     patients_info = load_patients()[["patient_id", "name"]]
@@ -1163,8 +1163,7 @@ elif page == "Executive Summary":
             df[df.status == "completed"]
             .groupby("department")["fee_charged"]
             .sum()
-            .reset_index()
-            .sort_values("fee_charged", ascending=True)
+            .sort_values(ascending=True)
             .tail(5)
         )
         fig = px.barh(
