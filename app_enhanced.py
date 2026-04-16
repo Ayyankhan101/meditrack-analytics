@@ -1353,7 +1353,8 @@ elif page == "Executive Summary":
             df[df.status == "completed"]
             .groupby("department")["fee_charged"]
             .sum()
-            .sort_values(ascending=True)
+            .reset_index()
+            .sort_values("fee_charged", ascending=True)
             .tail(5)
         )
         fig = px.barh(
