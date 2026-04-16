@@ -508,7 +508,7 @@ elif page == "Pakistan Map":
             oceancolor="#0d1411",
             showcountries=True,
             countrycolor="#134e4a",
-            center=dict(lat=30, lon=70),
+            center={"lat": 30, "lon": 70},
             projection="mercator",
         ),
     )
