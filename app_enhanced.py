@@ -12,11 +12,12 @@ st.set_page_config(
     page_title="MediTrack Command Center",
     page_icon="🏥",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # ── Dark Command Center Theme ─────────────────────────────────────────────
-st.markdown("""
+st.markdown(
+    """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 :root{
@@ -89,32 +90,40 @@ div[data-testid="stDataFrame"]{background:var(--bg-card)!important;border:1px so
 .floor-pending{background:linear-gradient(135deg,rgba(245,158,11,0.15) 0%,rgba(245,158,11,0.1) 100%);border-left:4px solid var(--amber);}
 .floor-noshow{background:linear-gradient(135deg,rgba(239,68,68,0.15) 0%,rgba(239,68,68,0.1) 100%);border-left:4px solid var(--red);}
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
+
 
 # ── Data loading ─────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
     con = sqlite3.connect("meditrack.db")
-    df = pd.read_sql("""
+    df = pd.read_sql(
+        """
         SELECT a.*, d.name doctor_name, d.department, d.seniority,
                c.city, c.clinic_name
         FROM appointments a
         JOIN doctors d ON a.doctor_id = d.doctor_id
         JOIN clinics c ON a.clinic_id = c.clinic_id
-    """, con)
+    """,
+        con,
+    )
     con.close()
     df["appt_date"] = pd.to_datetime(df["appt_date"])
-    df["month"]     = df["appt_date"].dt.to_period("M").astype(str)
+    df["month"] = df["appt_date"].dt.to_period("M").astype(str)
     df["appt_hour"] = df["appt_time"].str[:2].astype(int)
-    df["week"]      = df["appt_date"].dt.isocalendar().week.astype(int)
-    df["year"]      = df["appt_date"].dt.year
+    df["week"] = df["appt_date"].dt.isocalendar().week.astype(int)
+    df["year"] = df["appt_date"].dt.year
     df["day_of_week_num"] = df["appt_date"].dt.dayofweek
     return df
+
 
 @st.cache_data
 def load_patients():
     con = sqlite3.connect("meditrack.db")
-    df = pd.read_sql("""
+    df = pd.read_sql(
+        """
         SELECT p.*, 
                MAX(a.appt_date) as last_visit,
                COUNT(a.appt_id) as total_visits,
@@ -122,10 +131,13 @@ def load_patients():
         FROM patients p
         LEFT JOIN appointments a ON p.patient_id = a.patient_id
         GROUP BY p.patient_id
-    """, con)
+    """,
+        con,
+    )
     con.close()
     df["last_visit"] = pd.to_datetime(df["last_visit"])
     return df
+
 
 df_all = load_data()
 patients_df = load_patients()
@@ -137,101 +149,191 @@ with st.sidebar:
     st.markdown("### Command Center")
     st.markdown("---")
     st.markdown("**Navigation**")
-    page = st.radio("Go to", [
-        "Dashboard", "Pakistan Map", "Clinic Floor", "Doctor Scorecards",
-        "Intelligence Hub", "Campaign Builder", "Shift Intelligence", 
-        "City vs City", "Executive Summary"
-    ], label_visibility="collapsed")
+    page = st.radio(
+        "Go to",
+        [
+            "Dashboard",
+            "Pakistan Map",
+            "Clinic Floor",
+            "Doctor Scorecards",
+            "Intelligence Hub",
+            "Campaign Builder",
+            "Shift Intelligence",
+            "City vs City",
+            "Executive Summary",
+        ],
+        label_visibility="collapsed",
+    )
     st.markdown("---")
-    cities = st.multiselect("Filter: City", sorted(df_all.city.unique()), default=sorted(df_all.city.unique()), key="sidebar_city")
-    depts  = st.multiselect("Filter: Department", sorted(df_all.department.unique()), default=sorted(df_all.department.unique()), key="sidebar_dept")
+    cities = st.multiselect(
+        "Filter: City",
+        sorted(df_all.city.unique()),
+        default=sorted(df_all.city.unique()),
+        key="sidebar_city",
+    )
+    depts = st.multiselect(
+        "Filter: Department",
+        sorted(df_all.department.unique()),
+        default=sorted(df_all.department.unique()),
+        key="sidebar_dept",
+    )
     st.markdown("---")
     st.markdown("**No-Show Predictor**")
-    pred_dept  = st.selectbox("Department", sorted(df_all.department.unique()), key="pd")
-    pred_day   = st.selectbox("Day", ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"], key="pday")
-    pred_hour  = st.slider("Hour", 8, 19, 10, key="ph")
-    pred_new   = st.radio("Patient", ["New","Returning"], key="pn", horizontal=True)
-    pred_snr   = st.selectbox("Seniority", ["Junior","Mid","Senior","Consultant"], key="ps")
-    pred_city  = st.selectbox("City", sorted(df_all.city.unique()), key="pc")
+    pred_dept = st.selectbox("Department", sorted(df_all.department.unique()), key="pd")
+    pred_day = st.selectbox(
+        "Day",
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        key="pday",
+    )
+    pred_hour = st.slider("Hour", 8, 19, 10, key="ph")
+    pred_new = st.radio("Patient", ["New", "Returning"], key="pn", horizontal=True)
+    pred_snr = st.selectbox(
+        "Seniority", ["Junior", "Mid", "Senior", "Consultant"], key="ps"
+    )
+    pred_city = st.selectbox("City", sorted(df_all.city.unique()), key="pc")
     predict_btn = st.button("Predict Risk", use_container_width=True)
 
 # ── Filter data ───────────────────────────────────────────────────────────────
-df = df_all[
-    df_all.city.isin(cities) &
-    df_all.department.isin(depts)
-].copy()
+df = df_all[df_all.city.isin(cities) & df_all.department.isin(depts)].copy()
+
 
 # ── Helper functions ──────────────────────────────────────────────────────────
 def kpi(col, label, val, delta=None, fmt=None):
-    if fmt=="money": display = f"₨{val:,.0f}"
-    elif fmt=="pct": display = f"{val:.1f}%"
-    else: display = f"{val:,}"
-    delta_color = "var(--red)" if delta and delta<0 else "var(--teal-neon)"
-    dhtml = f"<div style='color:{delta_color};font-size:.85rem;margin-top:4px;'>{delta:+.1f}% vs avg</div>" if delta is not None else ""
-    col.markdown(f"<div class='metric-card'><div class='metric-lbl'>{label}</div><div class='metric-val'>{display}</div>{dhtml}</div>", unsafe_allow_html=True)
+    if fmt == "money":
+        display = f"₨{val:,.0f}"
+    elif fmt == "pct":
+        display = f"{val:.1f}%"
+    else:
+        display = f"{val:,}"
+    delta_color = "var(--red)" if delta and delta < 0 else "var(--teal-neon)"
+    dhtml = (
+        f"<div style='color:{delta_color};font-size:.85rem;margin-top:4px;'>{delta:+.1f}% vs avg</div>"
+        if delta is not None
+        else ""
+    )
+    col.markdown(
+        f"<div class='metric-card'><div class='metric-lbl'>{label}</div><div class='metric-val'>{display}</div>{dhtml}</div>",
+        unsafe_allow_html=True,
+    )
+
 
 def get_city_revenue():
-    return df[df.status=="completed"].groupby("city")["fee_charged"].sum().to_dict()
+    return df[df.status == "completed"].groupby("city")["fee_charged"].sum().to_dict()
+
 
 # ── Page routing ───────────────────────────────────────────────────────────────
 if page == "Dashboard":
     st.markdown("# 📊 MediTrack Command Center")
-    st.markdown(f"<span style='color:var(--text-muted)'>Live operations · {max_date.strftime('%Y-%m-%d')} · {len(df):,} appointments</span>", unsafe_allow_html=True)
-    
+    st.markdown(
+        f"<span style='color:var(--text-muted)'>Live operations · {max_date.strftime('%Y-%m-%d')} · {len(df):,} appointments</span>",
+        unsafe_allow_html=True,
+    )
+
     # KPI Row
-    total_rev = df[df.status=="completed"].fee_charged.sum()
-    completed_r = (df.status=="completed").mean()*100
-    noshows_r = (df.status=="no_show").mean()*100
-    avg_fee = df[df.status=="completed"].fee_charged.mean()
+    total_rev = df[df.status == "completed"].fee_charged.sum()
+    completed_r = (df.status == "completed").mean() * 100
+    noshows_r = (df.status == "no_show").mean() * 100
+    avg_fee = df[df.status == "completed"].fee_charged.mean()
     total_appts = len(df)
-    
-    k1,k2,k3,k4,k5 = st.columns(5)
-    kpi(k1,"Total Appointments", total_appts)
-    kpi(k2,"Total Revenue", total_rev, fmt="money")
-    kpi(k3,"Completion Rate", completed_r, fmt="pct")
-    kpi(k4,"No-Show Rate", noshows_r, fmt="pct")
-    kpi(k5,"Avg Fee", avg_fee, fmt="money")
-    
+
+    k1, k2, k3, k4, k5 = st.columns(5)
+    kpi(k1, "Total Appointments", total_appts)
+    kpi(k2, "Total Revenue", total_rev, fmt="money")
+    kpi(k3, "Completion Rate", completed_r, fmt="pct")
+    kpi(k4, "No-Show Rate", noshows_r, fmt="pct")
+    kpi(k5, "Avg Fee", avg_fee, fmt="money")
+
     # Revenue by City
-    st.markdown("<div class='section-head'>Revenue by City</div>", unsafe_allow_html=True)
-    rev_city = df[df.status=="completed"].groupby("city")["fee_charged"].sum().sort_values(ascending=False).reset_index()
-    fig = px.bar(rev_city, x="city", y="fee_charged",
-                 color="fee_charged", color_continuous_scale=["#0d2626","#0d9488","#14ffec"],
-                 title="", labels={"fee_charged":"Revenue (₨)","city":""})
+    st.markdown(
+        "<div class='section-head'>Revenue by City</div>", unsafe_allow_html=True
+    )
+    rev_city = (
+        df[df.status == "completed"]
+        .groupby("city")["fee_charged"]
+        .sum()
+        .sort_values(ascending=False)
+        .reset_index()
+    )
+    fig = px.bar(
+        rev_city,
+        x="city",
+        y="fee_charged",
+        color="fee_charged",
+        color_continuous_scale=["#0d2626", "#0d9488", "#14ffec"],
+        title="",
+        labels={"fee_charged": "Revenue (₨)", "city": ""},
+    )
     fig.update_layout(
-        plot_bgcolor="transparent", paper_bgcolor="transparent",
-        font_family="DM Sans", font_color="var(--teal-light)",
-        coloraxis_showscale=False, margin=dict(t=20,b=40),
-        yaxis=dict(gridcolor="var(--border)",tickfont=dict(color="var(--text-muted)")),
-        xaxis=dict(tickfont=dict(color="var(--text-muted)"))
+        plot_bgcolor="#0a0f0d",
+        paper_bgcolor="#0a0f0d",
+        font_family="DM Sans",
+        font_color="#e2e8f0",
+        coloraxis_showscale=False,
+        margin=dict(t=20, b=40),
+        yaxis=dict(gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")),
+        xaxis=dict(tickfont=dict(color="var(--text-muted)")),
     )
     st.plotly_chart(fig, use_container_width=True)
-    
+
     # Trend
-    st.markdown("<div class='section-head'>Appointment Volume Trend</div>", unsafe_allow_html=True)
-    vol = df.groupby("month").agg(total=("appt_id","count"), completed=("status", lambda x:(x=="completed").sum())).reset_index()
+    st.markdown(
+        "<div class='section-head'>Appointment Volume Trend</div>",
+        unsafe_allow_html=True,
+    )
+    vol = (
+        df.groupby("month")
+        .agg(
+            total=("appt_id", "count"),
+            completed=("status", lambda x: (x == "completed").sum()),
+        )
+        .reset_index()
+    )
     fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(x=vol.month, y=vol.total, name="All", line=dict(color="var(--teal-dim)",width=2), fill="tozeroy", fillcolor="rgba(13,148,136,0.1)"))
-    fig2.add_trace(go.Scatter(x=vol.month, y=vol.completed, name="Completed", line=dict(color="var(--teal-neon)",width=3)))
-    fig2.update_layout(plot_bgcolor="transparent", paper_bgcolor="transparent",
-                       font_family="DM Sans", font_color="var(--teal-light)",
-                       legend=dict(orientation="h",y=1.1,font=dict(color="var(--text-muted)")),
-                       margin=dict(t=20,b=40), yaxis=dict(gridcolor="var(--border)",tickfont=dict(color="var(--text-muted)")),
-                       xaxis=dict(tickfont=dict(color="var(--text-muted)")))
+    fig2.add_trace(
+        go.Scatter(
+            x=vol.month,
+            y=vol.total,
+            name="All",
+            line=dict(color="var(--teal-dim)", width=2),
+            fill="tozeroy",
+            fillcolor="rgba(13,148,136,0.1)",
+        )
+    )
+    fig2.add_trace(
+        go.Scatter(
+            x=vol.month,
+            y=vol.completed,
+            name="Completed",
+            line=dict(color="var(--teal-neon)", width=3),
+        )
+    )
+    fig2.update_layout(
+        plot_bgcolor="#0a0f0d",
+        paper_bgcolor="#0a0f0d",
+        font_family="DM Sans",
+        font_color="#e2e8f0",
+        legend=dict(orientation="h", y=1.1, font=dict(color="var(--text-muted)")),
+        margin=dict(t=20, b=40),
+        yaxis=dict(gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")),
+        xaxis=dict(tickfont=dict(color="var(--text-muted)")),
+    )
     st.plotly_chart(fig2, use_container_width=True)
 
 elif page == "Pakistan Map":
     st.markdown("# 🗺️ Pakistan Clinic Network")
-    st.markdown("<span style='color:var(--text-muted)'>Interactive map · Click cities to drill down</span>", unsafe_allow_html=True)
-    
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Interactive map · Click cities to drill down</span>",
+        unsafe_allow_html=True,
+    )
+
     city_rev = get_city_revenue()
     max_rev = max(city_rev.values()) if city_rev else 1
-    
-    col1, col2 = st.columns([2,1])
+
+    col1, col2 = st.columns([2, 1])
     with col1:
         svg_path = "assets/pakistan_map.svg"
         try:
-            with open(svg_path, 'r') as f:
+            with open(svg_path, "r") as f:
                 svg_content = f.read()
             for city, rev in city_rev.items():
                 glow_id = f"glow-{city}"
@@ -245,35 +347,45 @@ elif page == "Pakistan Map":
                     fill = "var(--teal-dark)"
                 else:
                     fill = "var(--teal-dim)"
-                svg_content = svg_content.replace(f'id="{glow_id}"', f'id="{glow_id}" style="fill:{fill}"')
-                svg_content = svg_content.replace(f'id="{text_id}"', f'id="{text_id}"').replace(f'₨ 0', f'₨{rev/1e6:.1f}M')
+                svg_content = svg_content.replace(
+                    f'id="{glow_id}"', f'id="{glow_id}" style="fill:{fill}"'
+                )
+                svg_content = svg_content.replace(
+                    f'id="{text_id}"', f'id="{text_id}"'
+                ).replace(f"₨ 0", f"₨{rev / 1e6:.1f}M")
             st.markdown(svg_content, unsafe_allow_html=True)
         except:
             st.info("Loading map...")
-    
+
     with col2:
         st.markdown("### City Performance")
         for city, rev in sorted(city_rev.items(), key=lambda x: x[1], reverse=True):
-            pct = rev/max_rev*100
-            st.markdown(f"""
+            pct = rev / max_rev * 100
+            st.markdown(
+                f"""
             <div class="metric-card" style="padding:12px 16px;margin:8px 0;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span style="color:var(--teal-light);font-weight:600;">{city}</span>
-                    <span style="color:var(--teal-neon);">₨{rev/1e6:.1f}M</span>
+                    <span style="color:var(--teal-neon);">₨{rev / 1e6:.1f}M</span>
                 </div>
                 <div style="background:var(--bg-dark);height:6px;border-radius:3px;margin-top:8px;">
                     <div style="background:linear-gradient(90deg,var(--teal),var(--teal-neon));height:100%;border-radius:3px;width:{pct}%;"></div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
 elif page == "Clinic Floor":
     st.markdown("# 🏥 Today's Clinic Floor")
-    st.markdown("<span style='color:var(--text-muted)'>Real-time appointment queue</span>", unsafe_allow_html=True)
-    
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Real-time appointment queue</span>",
+        unsafe_allow_html=True,
+    )
+
     today = max_date.strftime("%Y-%m-%d")
     today_df = df[df.appt_date.dt.strftime("%Y-%m-%d") == today]
-    
+
     if today_df.empty:
         st.warning("No appointments today in selected filters")
     else:
@@ -282,228 +394,399 @@ elif page == "Clinic Floor":
             st.markdown(f"### {clinic_name}")
             cols = st.columns(4)
             for i, (_, row) in enumerate(clinic_data.iterrows()):
-                status_class = "floor-completed" if row["status"]=="completed" else "floor-pending" if row["status"]=="scheduled" else "floor-noshow"
+                status_class = (
+                    "floor-completed"
+                    if row["status"] == "completed"
+                    else "floor-pending"
+                    if row["status"] == "scheduled"
+                    else "floor-noshow"
+                )
                 time = row["appt_time"]
-                with cols[i%4]:
-                    st.markdown(f"""
+                with cols[i % 4]:
+                    st.markdown(
+                        f"""
                     <div class="floor-card {status_class}">
                         <div style="font-size:0.85rem;color:var(--text-muted);">{time}</div>
-                        <div style="font-weight:600;color:var(--teal-light);">{row['doctor_name']}</div>
-                        <div style="font-size:0.8rem;color:var(--text-dim);">{row['department']}</div>
-                        <div style="font-size:0.75rem;margin-top:4px;color:{'var(--teal-neon)' if row['status']=='completed' else 'var(--amber)' if row['status']=='scheduled' else 'var(--red)'};">{row['status'].upper()}</div>
+                        <div style="font-weight:600;color:var(--teal-light);">{row["doctor_name"]}</div>
+                        <div style="font-size:0.8rem;color:var(--text-dim);">{row["department"]}</div>
+                        <div style="font-size:0.75rem;margin-top:4px;color:{"var(--teal-neon)" if row["status"] == "completed" else "var(--amber)" if row["status"] == "scheduled" else "var(--red)"};">{row["status"].upper()}</div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """,
+                        unsafe_allow_html=True,
+                    )
             st.markdown("---")
 
 elif page == "Doctor Scorecards":
     st.markdown("# 👨‍⚕️ Doctor Scorecards")
-    st.markdown("<span style='color:var(--text-muted)'>Performance radar across 5 dimensions</span>", unsafe_allow_html=True)
-    
-    doc_stats = df.groupby(["doctor_name","department","city"]).agg(
-        total=("appt_id","count"),
-        completed=("status", lambda x:(x=="completed").sum()),
-        no_shows=("status", lambda x:(x=="no_show").sum()),
-        revenue=("fee_charged","sum"),
-        avg_fee=("fee_charged","mean")
-    ).reset_index()
-    doc_stats["completion_rate"] = doc_stats["completed"]/doc_stats["total"]*100
-    doc_stats["no_show_rate"] = doc_stats["no_shows"]/doc_stats["total"]*100
-    
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Performance radar across 5 dimensions</span>",
+        unsafe_allow_html=True,
+    )
+
+    doc_stats = (
+        df.groupby(["doctor_name", "department", "city"])
+        .agg(
+            total=("appt_id", "count"),
+            completed=("status", lambda x: (x == "completed").sum()),
+            no_shows=("status", lambda x: (x == "no_show").sum()),
+            revenue=("fee_charged", "sum"),
+            avg_fee=("fee_charged", "mean"),
+        )
+        .reset_index()
+    )
+    doc_stats["completion_rate"] = doc_stats["completed"] / doc_stats["total"] * 100
+    doc_stats["no_show_rate"] = doc_stats["no_shows"] / doc_stats["total"] * 100
+
     patient_visits = df.groupby("doctor_name")["patient_id"].nunique().reset_index()
-    patient_visits.columns = ["doctor_name","unique_patients"]
+    patient_visits.columns = ["doctor_name", "unique_patients"]
     doc_stats = doc_stats.merge(patient_visits, on="doctor_name")
-    doc_stats["retention"] = (doc_stats["completed"] / doc_stats["unique_patients"]).clip(0, 100)
-    
-    doc_stats = doc_stats[doc_stats.total >= 20].sort_values("revenue", ascending=False).head(12)
-    
+    doc_stats["retention"] = (
+        doc_stats["completed"] / doc_stats["unique_patients"]
+    ).clip(0, 100)
+
+    doc_stats = (
+        doc_stats[doc_stats.total >= 20]
+        .sort_values("revenue", ascending=False)
+        .head(12)
+    )
+
     for i in range(0, len(doc_stats), 3):
         cols = st.columns(3)
-        for j, (_, row) in enumerate(doc_stats.iloc[i:i+3].iterrows()):
+        for j, (_, row) in enumerate(doc_stats.iloc[i : i + 3].iterrows()):
             with cols[j]:
-                categories = ['Completion', 'Revenue', 'No-Show', 'Retention', 'Avg Fee']
-                values = [
-                    row['completion_rate']/100,
-                    min(row['revenue']/doc_stats['revenue'].max(),1),
-                    1 - row['no_show_rate']/100,
-                    row['retention']/100,
-                    row['avg_fee']/doc_stats['avg_fee'].max()
+                categories = [
+                    "Completion",
+                    "Revenue",
+                    "No-Show",
+                    "Retention",
+                    "Avg Fee",
                 ]
-                
+                values = [
+                    row["completion_rate"] / 100,
+                    min(row["revenue"] / doc_stats["revenue"].max(), 1),
+                    1 - row["no_show_rate"] / 100,
+                    row["retention"] / 100,
+                    row["avg_fee"] / doc_stats["avg_fee"].max(),
+                ]
+
                 fig = go.Figure()
-                fig.add_trace(go.Scatterpolar(
-                    r=values + [values[0]],
-                    theta=categories + [categories[0]],
-                    fill='toself',
-                    line_color='var(--teal-neon)',
-                    fillcolor='rgba(20,255,236,0.3)',
-                    name=row['doctor_name']
-                ))
+                fig.add_trace(
+                    go.Scatterpolar(
+                        r=values + [values[0]],
+                        theta=categories + [categories[0]],
+                        fill="toself",
+                        line_color="var(--teal-neon)",
+                        fillcolor="rgba(20,255,236,0.3)",
+                        name=row["doctor_name"],
+                    )
+                )
                 fig.update_layout(
                     polar=dict(
-                        radialaxis=dict(visible=True, range=[0,1], tickfont=dict(color="var(--text-muted)"), gridcolor="var(--border)"),
-                        bgcolor='transparent'
+                        radialaxis=dict(
+                            visible=True,
+                            range=[0, 1],
+                            tickfont=dict(color="var(--text-muted)"),
+                            gridcolor="var(--border)",
+                        ),
+                        bgcolor="transparent",
                     ),
                     paper_bgcolor="transparent",
-                    margin=dict(t=30,b=20,l=20,r=20),
+                    margin=dict(t=30, b=20, l=20, r=20),
                     height=250,
                     showlegend=False,
-                    title=dict(text=f"{row['doctor_name']}<br><span style='font-size:10px;color:var(--text-dim)'>{row['department']} · {row['city']}</span>", font=dict(color="var(--teal-light)",size=14))
+                    title=dict(
+                        text=f"{row['doctor_name']}<br><span style='font-size:10px;color:var(--text-dim)'>{row['department']} · {row['city']}</span>",
+                        font=dict(color="var(--teal-light)", size=14),
+                    ),
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
 elif page == "Intelligence Hub":
     st.markdown("# 🧠 Intelligence Hub")
-    st.markdown("<span style='color:var(--text-muted)'>Smart predictions & anomaly detection</span>", unsafe_allow_html=True)
-    
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📈 Reminder ROI", "⚠️ Churn Detection", "🔥 Doctor Burnout", "🦠 Seasonal Patterns", "🚨 Anomaly Detection", "💰 Revenue Alerts"])
-    
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Smart predictions & anomaly detection</span>",
+        unsafe_allow_html=True,
+    )
+
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        [
+            "📈 Reminder ROI",
+            "⚠️ Churn Detection",
+            "🔥 Doctor Burnout",
+            "🦠 Seasonal Patterns",
+            "🚨 Anomaly Detection",
+            "💰 Revenue Alerts",
+        ]
+    )
+
     with tab1:
         st.markdown("### Reminder ROI Calculator")
         c1, c2, c3 = st.columns(3)
         with c1:
             remind_count = st.number_input("Patients to remind", 10, 5000, 100)
         with c2:
-            historical_ns = df[df.status=="no_show"].shape[0] / len(df) * 100
+            historical_ns = df[df.status == "no_show"].shape[0] / len(df) * 100
         with c3:
-            avg_fee = df[df.status=="completed"]["fee_charged"].mean()
-        
+            avg_fee = df[df.status == "completed"]["fee_charged"].mean()
+
         recovered = remind_count * (historical_ns / 100) * 0.5
         revenue_saved = recovered * avg_fee
-        
-        st.markdown(f"""
+
+        st.markdown(
+            f"""
         <div class="info-box">
             <div style="font-size:1.5rem;color:var(--teal-neon);font-weight:700;">{int(recovered)} patients</div>
             <div style="color:var(--text-muted);">Estimated no-shows recovered (50% reminder success)</div>
             <div style="font-size:2rem;color:var(--teal-neon);font-weight:700;margin-top:12px;">₨{revenue_saved:,.0f}</div>
             <div style="color:var(--text-muted);">Estimated revenue saved</div>
         </div>
-        """, unsafe_allow_html=True)
-    
+        """,
+            unsafe_allow_html=True,
+        )
+
     with tab2:
         st.markdown("### Churn Detection (90+ Days)")
         cutoff_date = max_date - timedelta(days=90)
-        churned = patients_df[(patients_df.last_visit.notna()) & (patients_df.last_visit < cutoff_date)].copy()
+        churned = patients_df[
+            (patients_df.last_visit.notna()) & (patients_df.last_visit < cutoff_date)
+        ].copy()
         churned["days_since"] = (max_date - churned["last_visit"]).dt.days
-        churned["est_lifetime_visits"] = (churned["total_visits"] / ((max_date - churned["last_visit"]).dt.days / 365).replace(0,1)).clip(0,50)
-        churned["est_ltv"] = churned["est_lifetime_visits"] * churned["lifetime_value"] / churned["total_visits"].replace(0,1)
-        
+        churned["est_lifetime_visits"] = (
+            churned["total_visits"]
+            / ((max_date - churned["last_visit"]).dt.days / 365).replace(0, 1)
+        ).clip(0, 50)
+        churned["est_ltv"] = (
+            churned["est_lifetime_visits"]
+            * churned["lifetime_value"]
+            / churned["total_visits"].replace(0, 1)
+        )
+
         st.metric("Churned Patients", len(churned))
         st.metric("Estimated Lost LTV", f"₨{churned['est_ltv'].sum():,.0f}")
-        
+
         st.dataframe(
-            churned.sort_values("days_since", ascending=False).head(10)[["name","city","days_since","total_visits","lifetime_value"]].assign(
-                est_ltv=lambda x: x["lifetime_value"]
-            ),
-            use_container_width=True
+            churned.sort_values("days_since", ascending=False)
+            .head(10)[["name", "city", "days_since", "total_visits", "lifetime_value"]]
+            .assign(est_ltv=lambda x: x["lifetime_value"]),
+            use_container_width=True,
         )
-    
+
     with tab3:
         st.markdown("### Doctor Burnout Signal")
-        weekly_docs = df.groupby(["doctor_name","year","week"]).size().reset_index(name="appointments")
-        avg_weekly = weekly_docs.groupby("doctor_name")["appointments"].mean().reset_index()
-        avg_weekly.columns = ["doctor_name","avg_weekly"]
+        weekly_docs = (
+            df.groupby(["doctor_name", "year", "week"])
+            .size()
+            .reset_index(name="appointments")
+        )
+        avg_weekly = (
+            weekly_docs.groupby("doctor_name")["appointments"].mean().reset_index()
+        )
+        avg_weekly.columns = ["doctor_name", "avg_weekly"]
         avg_weekly = avg_weekly.sort_values("avg_weekly", ascending=False)
-        
+
         burnout_thresh = 40
         overloaded = avg_weekly[avg_weekly.avg_weekly >= burnout_thresh]
-        
+
         st.metric("Doctors Monitored", len(avg_weekly))
         st.metric("Overloaded (40+ appts/week)", len(overloaded))
-        
-        fig = px.bar(avg_weekly.head(15), x="avg_weekly", y="doctor_name", orientation="h",
-                     color="avg_weekly", color_continuous_scale=["#0d2626","#f59e0b","#ef4444"],
-                     title="Appointments per Doctor per Week")
-        fig.update_layout(plot_bgcolor="transparent", paper_bgcolor="transparent",
-                         font_color="var(--teal-light)", coloraxis_showscale=False,
-                         yaxis=dict(tickfont=dict(color="var(--text-muted)")),
-                         xaxis=dict(gridcolor="var(--border)",tickfont=dict(color="var(--text-muted)")),
-                         margin=dict(t=30,b=20))
+
+        fig = px.bar(
+            avg_weekly.head(15),
+            x="avg_weekly",
+            y="doctor_name",
+            orientation="h",
+            color="avg_weekly",
+            color_continuous_scale=["#0d2626", "#f59e0b", "#ef4444"],
+            title="Appointments per Doctor per Week",
+        )
+        fig.update_layout(
+            plot_bgcolor="#0a0f0d",
+            paper_bgcolor="#0a0f0d",
+            font_color="#e2e8f0",
+            coloraxis_showscale=False,
+            yaxis=dict(tickfont=dict(color="var(--text-muted)")),
+            xaxis=dict(
+                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
+            ),
+            margin=dict(t=30, b=20),
+        )
         st.plotly_chart(fig, use_container_width=True)
-        
+
         if not overloaded.empty:
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div class="alert-box">
                 <strong>⚠️ Burnout Warning</strong><br>
                 {len(overloaded)} doctor(s) exceed {burnout_thresh} appointments/week. Consider adding support or adjusting schedules.
             </div>
-            """, unsafe_allow_html=True)
-    
+            """,
+                unsafe_allow_html=True,
+            )
+
     with tab4:
         st.markdown("### Seasonal Illness Patterns")
-        seasonal_months = ["10","11","12","01","02"]
+        seasonal_months = ["10", "11", "12", "01", "02"]
         df["month_num"] = df["appt_date"].dt.month
-        seasonal = df[df.month_num.isin([10,11,12,1,2])].groupby(["month","department"]).size().reset_index(name="count")
-        non_seasonal = df[~df.month_num.isin([10,11,12,1,2])].groupby("department").size().reset_index(name="avg_monthly")
-        
-        pediatrics = df[df.department.isin(["Pediatrics","General"])].groupby("month").size().reset_index()
-        fig = px.line(pediatrics, x="month", y="count", title="Pediatrics/General Volume by Month (Flu Season Highlighted)",
-                      markers=True)
-        fig.add_vrect(x0="2024-10", x1="2025-02", fillcolor="rgba(239,68,68,0.1)", opacity=0.5, line_width=0, annotation_text="Flu Season", annotation_position="top left")
-        fig.update_layout(plot_bgcolor="transparent", paper_bgcolor="transparent",
-                         font_color="var(--teal-light)", margin=dict(t=30,b=40),
-                         yaxis=dict(gridcolor="var(--border)",tickfont=dict(color="var(--text-muted)")),
-                         xaxis=dict(tickfont=dict(color="var(--text-muted)")))
+        seasonal = (
+            df[df.month_num.isin([10, 11, 12, 1, 2])]
+            .groupby(["month", "department"])
+            .size()
+            .reset_index(name="count")
+        )
+        non_seasonal = (
+            df[~df.month_num.isin([10, 11, 12, 1, 2])]
+            .groupby("department")
+            .size()
+            .reset_index(name="avg_monthly")
+        )
+
+        pediatrics = (
+            df[df.department.isin(["Pediatrics", "General"])]
+            .groupby("month")
+            .size()
+            .reset_index()
+        )
+        fig = px.line(
+            pediatrics,
+            x="month",
+            y="count",
+            title="Pediatrics/General Volume by Month (Flu Season Highlighted)",
+            markers=True,
+        )
+        fig.add_vrect(
+            x0="2024-10",
+            x1="2025-02",
+            fillcolor="rgba(239,68,68,0.1)",
+            opacity=0.5,
+            line_width=0,
+            annotation_text="Flu Season",
+            annotation_position="top left",
+        )
+        fig.update_layout(
+            plot_bgcolor="#0a0f0d",
+            paper_bgcolor="#0a0f0d",
+            font_color="#e2e8f0",
+            margin=dict(t=30, b=40),
+            yaxis=dict(
+                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
+            ),
+            xaxis=dict(tickfont=dict(color="var(--text-muted)")),
+        )
         st.plotly_chart(fig, use_container_width=True)
-    
+
     with tab5:
         st.markdown("### Anomaly Detection")
-        daily_ns = df.groupby("appt_date").agg(total=("appt_id","count"), no_shows=("status", lambda x:(x=="no_show").sum())).reset_index()
-        daily_ns["ns_rate"] = daily_ns["no_shows"]/daily_ns["total"]*100
+        daily_ns = (
+            df.groupby("appt_date")
+            .agg(
+                total=("appt_id", "count"),
+                no_shows=("status", lambda x: (x == "no_show").sum()),
+            )
+            .reset_index()
+        )
+        daily_ns["ns_rate"] = daily_ns["no_shows"] / daily_ns["total"] * 100
         mean_ns = daily_ns["ns_rate"].mean()
         std_ns = daily_ns["ns_rate"].std()
-        threshold = mean_ns + 2*std_ns
+        threshold = mean_ns + 2 * std_ns
         anomalies = daily_ns[daily_ns["ns_rate"] > threshold]
-        
+
         st.metric("Days Analyzed", len(daily_ns))
-        st.metric("Anomalous Days", len(anomalies), delta=f"{len(anomalies)/len(daily_ns)*100:.1f}%")
-        
+        st.metric(
+            "Anomalous Days",
+            len(anomalies),
+            delta=f"{len(anomalies) / len(daily_ns) * 100:.1f}%",
+        )
+
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=daily_ns["appt_date"], y=daily_ns["ns_rate"], mode="lines+markers",
-                                 line=dict(color="var(--teal)",width=2), name="Daily Rate"))
-        fig.add_hline(y=threshold, line_dash="dash", line_color="var(--red)", annotation_text="2 Std Dev")
-        fig.add_hline(y=mean_ns, line_dash="dot", line_color="var(--teal-neon)", annotation_text="Mean")
-        fig.update_layout(title="Daily No-Show Rate with Anomaly Detection", plot_bgcolor="transparent",
-                         paper_bgcolor="transparent", font_color="var(--teal-light)",
-                         yaxis=dict(gridcolor="var(--border)",tickfont=dict(color="var(--text-muted)")),
-                         xaxis=dict(tickfont=dict(color="var(--text-muted)")),
-                         margin=dict(t=30,b=40))
+        fig.add_trace(
+            go.Scatter(
+                x=daily_ns["appt_date"],
+                y=daily_ns["ns_rate"],
+                mode="lines+markers",
+                line=dict(color="var(--teal)", width=2),
+                name="Daily Rate",
+            )
+        )
+        fig.add_hline(
+            y=threshold,
+            line_dash="dash",
+            line_color="var(--red)",
+            annotation_text="2 Std Dev",
+        )
+        fig.add_hline(
+            y=mean_ns,
+            line_dash="dot",
+            line_color="var(--teal-neon)",
+            annotation_text="Mean",
+        )
+        fig.update_layout(
+            title="Daily No-Show Rate with Anomaly Detection",
+            plot_bgcolor="transparent",
+            paper_bgcolor="transparent",
+            font_color="#e2e8f0",
+            yaxis=dict(
+                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
+            ),
+            xaxis=dict(tickfont=dict(color="var(--text-muted)")),
+            margin=dict(t=30, b=40),
+        )
         st.plotly_chart(fig, use_container_width=True)
-        
+
         if not anomalies.empty:
             st.markdown("### 🚨 What Happened?")
             for _, row in anomalies.iterrows():
-                st.markdown(f"""
+                st.markdown(
+                    f"""
                 <div class="alert-box">
-                    <strong>{row['appt_date'].strftime('%Y-%m-%d')}</strong>: {row['ns_rate']:.1f}% no-show rate (vs {mean_ns:.1f}% avg)<br>
-                    <span style="color:var(--text-muted)">{row['no_shows']} no-shows out of {row['total']} appointments</span>
+                    <strong>{row["appt_date"].strftime("%Y-%m-%d")}</strong>: {row["ns_rate"]:.1f}% no-show rate (vs {mean_ns:.1f}% avg)<br>
+                    <span style="color:var(--text-muted)">{row["no_shows"]} no-shows out of {row["total"]} appointments</span>
                 </div>
-                """, unsafe_allow_html=True)
-    
+                """,
+                    unsafe_allow_html=True,
+                )
+
     with tab6:
         st.markdown("### Revenue Alerts (MoM Drop >20%)")
-        clinic_rev = df[df.status=="completed"].groupby(["clinic_name","month"])["fee_charged"].sum().reset_index()
-        clinic_rev = clinic_rev.sort_values(["clinic_name","month"])
-        clinic_rev["prev_month"] = clinic_rev.groupby("clinic_name")["fee_charged"].shift(1)
-        clinic_rev["pct_change"] = (clinic_rev["fee_charged"] - clinic_rev["prev_month"]) / clinic_rev["prev_month"] * 100
+        clinic_rev = (
+            df[df.status == "completed"]
+            .groupby(["clinic_name", "month"])["fee_charged"]
+            .sum()
+            .reset_index()
+        )
+        clinic_rev = clinic_rev.sort_values(["clinic_name", "month"])
+        clinic_rev["prev_month"] = clinic_rev.groupby("clinic_name")[
+            "fee_charged"
+        ].shift(1)
+        clinic_rev["pct_change"] = (
+            (clinic_rev["fee_charged"] - clinic_rev["prev_month"])
+            / clinic_rev["prev_month"]
+            * 100
+        )
         alerts = clinic_rev[clinic_rev["pct_change"] < -20].dropna()
-        
+
         st.metric("Clinics Monitored", df.clinic_name.nunique())
         st.metric("Revenue Alerts", len(alerts))
-        
+
         if not alerts.empty:
             for _, row in alerts.iterrows():
-                st.markdown(f"""
+                st.markdown(
+                    f"""
                 <div class="alert-box">
-                    <strong>🏥 {row['clinic_name']}</strong><br>
-                    <span style="color:var(--teal-neon);font-size:1.2rem;">{row['pct_change']:.1f}% MoM</span> drop<br>
-                    <span style="color:var(--text-muted)">₨{row['prev_month']:,.0f} → ₨{row['fee_charged']:,.0f}</span>
+                    <strong>🏥 {row["clinic_name"]}</strong><br>
+                    <span style="color:var(--teal-neon);font-size:1.2rem;">{row["pct_change"]:.1f}% MoM</span> drop<br>
+                    <span style="color:var(--text-muted)">₨{row["prev_month"]:,.0f} → ₨{row["fee_charged"]:,.0f}</span>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
 elif page == "Campaign Builder":
     st.markdown("# 📢 Reminder Campaign Builder")
-    st.markdown("<span style='color:var(--text-muted)'>Generate patient list for outreach</span>", unsafe_allow_html=True)
-    
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Generate patient list for outreach</span>",
+        unsafe_allow_html=True,
+    )
+
     c1, c2, c3 = st.columns(3)
     with c1:
         start_date = st.date_input("Start Date", max_date - timedelta(days=30))
@@ -511,164 +794,271 @@ elif page == "Campaign Builder":
         end_date = st.date_input("End Date", max_date)
     with c3:
         risk_threshold = st.slider("Min Risk Score %", 0, 100, 30)
-    
-    campaign_df = df[(df.appt_date >= pd.to_datetime(start_date)) & (df.appt_date <= pd.to_datetime(end_date))].copy()
+
+    campaign_df = df[
+        (df.appt_date >= pd.to_datetime(start_date))
+        & (df.appt_date <= pd.to_datetime(end_date))
+    ].copy()
     campaign_df["risk_score"] = np.where(
-        campaign_df["is_new_patient"]==1, 
-        campaign_df["no_show_rate"]*1.5 if "no_show_rate" in campaign_df else 30,
-        campaign_df["no_show_rate"] if "no_show_rate" in campaign_df else 15
+        campaign_df["is_new_patient"] == 1,
+        campaign_df["no_show_rate"] * 1.5 if "no_show_rate" in campaign_df else 30,
+        campaign_df["no_show_rate"] if "no_show_rate" in campaign_df else 15,
     )
-    campaign_df["no_show_rate"] = df.groupby("patient_id")["status"].apply(
-        lambda x: (x=="no_show").mean()*100
-    ).reindex(campaign_df["patient_id"]).values
-    
-    patients = campaign_df.groupby("patient_id").agg(
-        name=("patient_id","first"),
-        city=("city","first"),
-        department=("department","first"),
-        no_show_rate=("no_show_rate","first"),
-        upcoming=("appt_id","count")
-    ).reset_index()
-    patients["risk_score"] = patients["no_show_rate"].fillna(15) * np.where(patients["upcoming"]>3, 1.2, 1)
-    
+    campaign_df["no_show_rate"] = (
+        df.groupby("patient_id")["status"]
+        .apply(lambda x: (x == "no_show").mean() * 100)
+        .reindex(campaign_df["patient_id"])
+        .values
+    )
+
+    patients = (
+        campaign_df.groupby("patient_id")
+        .agg(
+            name=("patient_id", "first"),
+            city=("city", "first"),
+            department=("department", "first"),
+            no_show_rate=("no_show_rate", "first"),
+            upcoming=("appt_id", "count"),
+        )
+        .reset_index()
+    )
+    patients["risk_score"] = patients["no_show_rate"].fillna(15) * np.where(
+        patients["upcoming"] > 3, 1.2, 1
+    )
+
     filtered = patients[patients["risk_score"] >= risk_threshold]
-    
+
     st.metric("Total Patients", len(patients))
     st.metric(f"High Risk (≥{risk_threshold}%)", len(filtered))
-    
+
     st.dataframe(filtered.head(20), use_container_width=True)
-    
+
     csv = filtered.to_csv(index=False)
-    st.download_button("📥 Download Campaign CSV", csv, "reminder_campaign.csv", "text/csv")
+    st.download_button(
+        "📥 Download Campaign CSV", csv, "reminder_campaign.csv", "text/csv"
+    )
 
 elif page == "Shift Intelligence":
     st.markdown("# ⏰ Shift Intelligence")
-    st.markdown("<span style='color:var(--text-muted)'>Optimize doctor scheduling</span>", unsafe_allow_html=True)
-    
-    hourly = df.groupby(["clinic_name","appt_hour"]).size().reset_index(name="appointments")
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Optimize doctor scheduling</span>",
+        unsafe_allow_html=True,
+    )
+
+    hourly = (
+        df.groupby(["clinic_name", "appt_hour"]).size().reset_index(name="appointments")
+    )
     clinic_totals = df.groupby("clinic_name").size().reset_index(name="total")
     hourly = hourly.merge(clinic_totals, on="clinic_name")
-    hourly["utilization"] = hourly["appointments"] / (hourly["total"] / (df.appt_hour.nunique())) * 100
-    
+    hourly["utilization"] = (
+        hourly["appointments"] / (hourly["total"] / (df.appt_hour.nunique())) * 100
+    )
+
     st.markdown("### Underbooked Slots by Clinic")
     underbooked = hourly[hourly["utilization"] < 30].sort_values("utilization")
-    
+
     if not underbooked.empty:
-        fig = px.scatter(underbooked, x="appt_hour", y="utilization", color="clinic_name",
-                       size="appointments", title="Underutilized Hour Slots (<30%)")
-        fig.update_layout(plot_bgcolor="transparent", paper_bgcolor="transparent",
-                         font_color="var(--teal-light)", 
-                         yaxis=dict(gridcolor="var(--border)",tickfont=dict(color="var(--text-muted)")),
-                         xaxis=dict(tickfont=dict(color="var(--text-muted)"), title="Hour of Day"),
-                         margin=dict(t=30,b=40))
+        fig = px.scatter(
+            underbooked,
+            x="appt_hour",
+            y="utilization",
+            color="clinic_name",
+            size="appointments",
+            title="Underutilized Hour Slots (<30%)",
+        )
+        fig.update_layout(
+            plot_bgcolor="#0a0f0d",
+            paper_bgcolor="#0a0f0d",
+            font_color="#e2e8f0",
+            yaxis=dict(
+                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
+            ),
+            xaxis=dict(tickfont=dict(color="var(--text-muted)"), title="Hour of Day"),
+            margin=dict(t=30, b=40),
+        )
         st.plotly_chart(fig, use_container_width=True)
-        
+
         st.markdown("### Recommendations")
         for clinic in underbooked.clinic_name.unique():
             clinic_slots = underbooked[underbooked.clinic_name == clinic]
-            st.markdown(f"**{clinic}**: Consider reducing hours at {', '.join(map(str, clinic_slots['appt_hour'].tolist()))}:00")
+            st.markdown(
+                f"**{clinic}**: Consider reducing hours at {', '.join(map(str, clinic_slots['appt_hour'].tolist()))}:00"
+            )
     else:
         st.success("All clinics have well-utilized schedules!")
-    
+
     st.markdown("### Peak Hours Analysis")
     peak = df.groupby("appt_hour").size().reset_index(name="count")
-    fig = px.bar(peak, x="appt_hour", y="count", title="Appointments by Hour",
-                 color="count", color_continuous_scale=["#0d2626","#0d9488","#14ffec"])
-    fig.update_layout(plot_bgcolor="transparent", paper_bgcolor="transparent",
-                     font_color="var(--teal-light)", coloraxis_showscale=False,
-                     yaxis=dict(gridcolor="var(--border)",tickfont=dict(color="var(--text-muted)")),
-                     xaxis=dict(tickfont=dict(color="var(--text-muted)"), title="Hour"),
-                     margin=dict(t=30,b=40))
+    fig = px.bar(
+        peak,
+        x="appt_hour",
+        y="count",
+        title="Appointments by Hour",
+        color="count",
+        color_continuous_scale=["#0d2626", "#0d9488", "#14ffec"],
+    )
+    fig.update_layout(
+        plot_bgcolor="#0a0f0d",
+        paper_bgcolor="#0a0f0d",
+        font_color="#e2e8f0",
+        coloraxis_showscale=False,
+        yaxis=dict(gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")),
+        xaxis=dict(tickfont=dict(color="var(--text-muted)"), title="Hour"),
+        margin=dict(t=30, b=40),
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 elif page == "City vs City":
     st.markdown("# 🏆 City vs City Benchmarking")
-    st.markdown("<span style='color:var(--text-muted)'>Head-to-head comparison</span>", unsafe_allow_html=True)
-    
+    st.markdown(
+        "<span style='color:var(--text-muted)'>Head-to-head comparison</span>",
+        unsafe_allow_html=True,
+    )
+
     c1, c2 = st.columns(2)
     with c1:
-        city1 = st.selectbox("City 1", sorted(df_all.city.unique()), index=0, key="city1")
+        city1 = st.selectbox(
+            "City 1", sorted(df_all.city.unique()), index=0, key="city1"
+        )
     with c2:
-        city2 = st.selectbox("City 2", sorted(df_all.city.unique()), index=1, key="city2")
-    
+        city2 = st.selectbox(
+            "City 2", sorted(df_all.city.unique()), index=1, key="city2"
+        )
+
     def get_city_metrics(city):
         cdf = df[df.city == city]
         return {
             "appointments": len(cdf),
-            "revenue": cdf[df.status=="completed"]["fee_charged"].sum(),
-            "completion": (cdf.status=="completed").mean()*100,
-            "noshow": (cdf.status=="no_show").mean()*100,
+            "revenue": cdf[df.status == "completed"]["fee_charged"].sum(),
+            "completion": (cdf.status == "completed").mean() * 100,
+            "noshow": (cdf.status == "no_show").mean() * 100,
             "clinics": cdf.clinic_name.nunique(),
             "doctors": cdf.doctor_name.nunique(),
-            "avg_fee": cdf[df.status=="completed"]["fee_charged"].mean()
+            "avg_fee": cdf[df.status == "completed"]["fee_charged"].mean(),
         }
-    
+
     m1 = get_city_metrics(city1)
     m2 = get_city_metrics(city2)
-    
+
     st.markdown("### Performance Comparison")
-    metrics = ["appointments","revenue","completion","noshow","clinics","doctors","avg_fee"]
-    labels = ["Appointments","Revenue","Completion %","No-Show %","Clinics","Doctors","Avg Fee"]
-    
+    metrics = [
+        "appointments",
+        "revenue",
+        "completion",
+        "noshow",
+        "clinics",
+        "doctors",
+        "avg_fee",
+    ]
+    labels = [
+        "Appointments",
+        "Revenue",
+        "Completion %",
+        "No-Show %",
+        "Clinics",
+        "Doctors",
+        "Avg Fee",
+    ]
+
     cols = st.columns(len(metrics))
     for i, (m, l) in enumerate(zip(metrics, labels)):
         v1, v2 = m1[m], m2[m]
-        winner = "▲" if (m in ["completion","revenue","clinics","doctors","avg_fee"] and v1 > v2) or (m == "noshow" and v1 < v2) else "▼"
+        winner = (
+            "▲"
+            if (
+                m in ["completion", "revenue", "clinics", "doctors", "avg_fee"]
+                and v1 > v2
+            )
+            or (m == "noshow" and v1 < v2)
+            else "▼"
+        )
         color = "var(--teal-neon)" if winner == "▲" else "var(--red)"
-        
-        if m in ["revenue","avg_fee"]:
+
+        if m in ["revenue", "avg_fee"]:
             fmt = f"₨{v1:,.0f}"
             fmt2 = f"₨{v2:,.0f}"
-        elif m in ["completion","noshow"]:
+        elif m in ["completion", "noshow"]:
             fmt = f"{v1:.1f}%"
             fmt2 = f"{v2:.1f}%"
         else:
             fmt = f"{v1:,}"
             fmt2 = f"{v2:,}"
-        
+
         with cols[i]:
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div class="metric-card" style="padding:16px;text-align:center;">
                 <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;">{l}</div>
                 <div style="font-size:1.5rem;color:var(--teal-neon);font-weight:700;">{fmt}</div>
                 <div style="font-size:1rem;color:var(--text-muted);">{fmt2}</div>
                 <div style="font-size:1.2rem;color:{color};">{winner}</div>
             </div>
-            """, unsafe_allow_html=True)
-    
+            """,
+                unsafe_allow_html=True,
+            )
+
     st.markdown("### Department Comparison")
-    d1 = df[df.city==city1].groupby("department").size().reset_index(name=city1)
-    d2 = df[df.city==city2].groupby("department").size().reset_index(name=city2)
+    d1 = df[df.city == city1].groupby("department").size().reset_index(name=city1)
+    d2 = df[df.city == city2].groupby("department").size().reset_index(name=city2)
     dept_comp = d1.merge(d2, on="department", how="outer").fillna(0)
-    
-    fig = go.Figure(data=[
-        go.Bar(name=city1, x=dept_comp.department, y=dept_comp[city1], marker_color="var(--teal)"),
-        go.Bar(name=city2, x=dept_comp.department, y=dept_comp[city2], marker_color="var(--teal-neon)")
-    ])
-    fig.update_layout(barmode="group", plot_bgcolor="transparent", paper_bgcolor="transparent",
-                     font_color="var(--teal-light)", margin=dict(t=30,b=40),
-                     legend=dict(font=dict(color="var(--text-muted)")))
+
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                name=city1,
+                x=dept_comp.department,
+                y=dept_comp[city1],
+                marker_color="var(--teal)",
+            ),
+            go.Bar(
+                name=city2,
+                x=dept_comp.department,
+                y=dept_comp[city2],
+                marker_color="var(--teal-neon)",
+            ),
+        ]
+    )
+    fig.update_layout(
+        barmode="group",
+        plot_bgcolor="#0a0f0d",
+        paper_bgcolor="#0a0f0d",
+        font_color="#e2e8f0",
+        margin=dict(t=30, b=40),
+        legend=dict(font=dict(color="var(--text-muted)")),
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 elif page == "Executive Summary":
     st.markdown("# 📋 Executive One-Pager")
-    st.markdown("<span style='color:var(--text-muted)'>CEO-ready snapshot · Printable</span>", unsafe_allow_html=True)
-    
+    st.markdown(
+        "<span style='color:var(--text-muted)'>CEO-ready snapshot · Printable</span>",
+        unsafe_allow_html=True,
+    )
+
     # Key metrics
-    total_rev = df[df.status=="completed"].fee_charged.sum()
-    completed_r = (df.status=="completed").mean()*100
-    noshows_r = (df.status=="no_show").mean()*100
-    avg_fee = df[df.status=="completed"]["fee_charged"].mean()
-    top_city = df[df.status=="completed"].groupby("city")["fee_charged"].sum().idxmax()
-    top_dept = df[df.status=="completed"].groupby("department")["fee_charged"].sum().idxmax()
+    total_rev = df[df.status == "completed"].fee_charged.sum()
+    completed_r = (df.status == "completed").mean() * 100
+    noshows_r = (df.status == "no_show").mean() * 100
+    avg_fee = df[df.status == "completed"]["fee_charged"].mean()
+    top_city = (
+        df[df.status == "completed"].groupby("city")["fee_charged"].sum().idxmax()
+    )
+    top_dept = (
+        df[df.status == "completed"].groupby("department")["fee_charged"].sum().idxmax()
+    )
     total_patients = df.patient_id.nunique()
     total_doctors = df.doctor_name.nunique()
-    
+
     # Calculate YoY if we have data
-    year_revs = df[df.status=="completed"].groupby("year")["fee_charged"].sum()
-    yoy_growth = ((year_revs.iloc[-1] - year_revs.iloc[0]) / year_revs.iloc[0] * 100) if len(year_revs) > 1 else 0
-    
-    st.markdown("""
+    year_revs = df[df.status == "completed"].groupby("year")["fee_charged"].sum()
+    yoy_growth = (
+        ((year_revs.iloc[-1] - year_revs.iloc[0]) / year_revs.iloc[0] * 100)
+        if len(year_revs) > 1
+        else 0
+    )
+
+    st.markdown(
+        """
     <style>
     .exec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
     .exec-card{
@@ -679,13 +1069,16 @@ elif page == "Executive Summary":
     .exec-lbl{font-size:0.8rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;}
     .exec-delta{font-size:0.9rem;margin-top:4px;}
     </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(f"""
+    """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""
     <div class="exec-grid">
         <div class="exec-card">
             <div class="exec-lbl">Total Revenue</div>
-            <div class="exec-val">₨{total_rev/1e6:.1f}M</div>
+            <div class="exec-val">₨{total_rev / 1e6:.1f}M</div>
             <div class="exec-delta" style="color:var(--teal-neon)">+{yoy_growth:.1f}% YoY</div>
         </div>
         <div class="exec-card">
@@ -726,50 +1119,94 @@ elif page == "Executive Summary":
             <div class="exec-delta" style="color:var(--text-muted)">active</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
-    
+    """,
+        unsafe_allow_html=True,
+    )
+
     # Mini charts
     c1, c2 = st.columns(2)
     with c1:
-        rev_trend = df[df.status=="completed"].groupby("month")["fee_charged"].sum().reset_index()
+        rev_trend = (
+            df[df.status == "completed"]
+            .groupby("month")["fee_charged"]
+            .sum()
+            .reset_index()
+        )
         fig = px.line(rev_trend, x="month", y="fee_charged", title="Revenue Trend")
-        fig.update_layout(plot_bgcolor="transparent", paper_bgcolor="transparent",
-                         font_color="var(--teal-light)", margin=dict(t=20,b=30),
-                         yaxis=dict(tickformat="₨{:.0f}",gridcolor="var(--border)"))
+        fig.update_layout(
+            plot_bgcolor="#0a0f0d",
+            paper_bgcolor="#0a0f0d",
+            font_color="#e2e8f0",
+            margin=dict(t=20, b=30),
+            yaxis=dict(tickformat="₨{:.0f}", gridcolor="var(--border)"),
+        )
         st.plotly_chart(fig, use_container_width=True)
     with c2:
-        dept_rev = df[df.status=="completed"].groupby("department")["fee_charged"].sum().reset_index().sort_values("fee_charged", ascending=True).tail(5)
-        fig = px.barh(dept_rev, x="fee_charged", y="department", title="Top Departments")
-        fig.update_layout(plot_bgcolor="transparent", paper_bgcolor="transparent",
-                         font_color="var(--teal-light)", margin=dict(t=20,b=30),
-                         xaxis=dict(gridcolor="var(--border)"))
+        dept_rev = (
+            df[df.status == "completed"]
+            .groupby("department")["fee_charged"]
+            .sum()
+            .reset_index()
+            .sort_values("fee_charged", ascending=True)
+            .tail(5)
+        )
+        fig = px.barh(
+            dept_rev, x="fee_charged", y="department", title="Top Departments"
+        )
+        fig.update_layout(
+            plot_bgcolor="#0a0f0d",
+            paper_bgcolor="#0a0f0d",
+            font_color="#e2e8f0",
+            margin=dict(t=20, b=30),
+            xaxis=dict(gridcolor="var(--border)"),
+        )
         st.plotly_chart(fig, use_container_width=True)
-    
+
     st.markdown("---")
-    st.markdown(f"<div style='text-align:center;color:var(--text-dim);font-size:0.8rem;'>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')} · MediTrack Command Center</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='text-align:center;color:var(--text-dim);font-size:0.8rem;'>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')} · MediTrack Command Center</div>",
+        unsafe_allow_html=True,
+    )
 
 # ── No-Show Predictor ──────────────────────────────────────────────────────────
 if predict_btn:
     st.markdown("### 🔮 No-Show Risk Prediction")
     try:
-        bundle = pickle.load(open("noshowmodel.pkl","rb"))
+        bundle = pickle.load(open("noshowmodel.pkl", "rb"))
         model = bundle["model"]
         encoders = bundle["encoders"]
-        
-        inp = pd.DataFrame([{
-            "appt_hour": pred_hour,
-            "is_new_patient": 1 if pred_new=="New" else 0,
-            "day_of_week_enc": encoders["day_of_week"].transform([pred_day])[0],
-            "department_enc": encoders["department"].transform([pred_dept])[0],
-            "seniority_enc": encoders["seniority"].transform([pred_snr])[0],
-            "city_enc": encoders["city"].transform([pred_city])[0],
-        }])
+
+        inp = pd.DataFrame(
+            [
+                {
+                    "appt_hour": pred_hour,
+                    "is_new_patient": 1 if pred_new == "New" else 0,
+                    "day_of_week_enc": encoders["day_of_week"].transform([pred_day])[0],
+                    "department_enc": encoders["department"].transform([pred_dept])[0],
+                    "seniority_enc": encoders["seniority"].transform([pred_snr])[0],
+                    "city_enc": encoders["city"].transform([pred_city])[0],
+                }
+            ]
+        )
         proba = model.predict_proba(inp)[0][1] * 100
-        
-        color = "var(--red)" if proba>30 else "var(--amber)" if proba>15 else "var(--teal-neon)"
-        level = "HIGH RISK 🔴" if proba>30 else "MODERATE ⚠️" if proba>15 else "LOW RISK ✅"
-        st.markdown(f"""
-        <div style='background:var(--bg-card);border:1px solid {color.replace('var(','var(--').replace(')',');')};border-radius:16px;padding:24px;max-width:400px;'>
+
+        color = (
+            "var(--red)"
+            if proba > 30
+            else "var(--amber)"
+            if proba > 15
+            else "var(--teal-neon)"
+        )
+        level = (
+            "HIGH RISK 🔴"
+            if proba > 30
+            else "MODERATE ⚠️"
+            if proba > 15
+            else "LOW RISK ✅"
+        )
+        st.markdown(
+            f"""
+        <div style='background:var(--bg-card);border:1px solid {color.replace("var(", "var(--").replace(")", ");")};border-radius:16px;padding:24px;max-width:400px;'>
             <div style='font-family:DM Serif Display;font-size:1.2rem;color:var(--teal-light);margin-bottom:8px;'>
                 Predicted No-Show Probability
             </div>
@@ -780,8 +1217,12 @@ if predict_btn:
                 {pred_dept} · {pred_day} {pred_hour:02d}:00 · {pred_snr} · {pred_new} · {pred_city}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
         if proba > 25:
-            st.info("💡 **Reminder recommended** — Send SMS/WhatsApp reminder 24h and 2h before appointment.")
+            st.info(
+                "💡 **Reminder recommended** — Send SMS/WhatsApp reminder 24h and 2h before appointment."
+            )
     except FileNotFoundError:
         st.error("Model not found. Run `python train_model.py` first.")
