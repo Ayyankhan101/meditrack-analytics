@@ -583,7 +583,7 @@ elif page == "Shift Intelligence":
 
 elif page == "City vs City":
     st.markdown("# 🏆 City vs City Benchmarking")
-    st.markdown("<span style='color:var(--text-muted)">Head-to-head comparison</span>", unsafe_allow_html=True)
+    st.markdown("<span style='color:var(--text-muted)'>Head-to-head comparison</span>", unsafe_allow_html=True)
     
     c1, c2 = st.columns(2)
     with c1:
