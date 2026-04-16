@@ -226,106 +226,106 @@ with st.sidebar:
     predict_btn = st.button("Predict Risk", use_container_width=True)
     st.markdown("---")
     st.markdown("**🎤 Voice Navigation**")
+    st.markdown("*Type command or use floating mic button*")
 
-    # Hidden text input for voice commands - JavaScript will populate this
-    voice_input = st.text_input(
-        "Say a command (e.g., 'dashboard', 'map', 'doctors')",
-        key="voice_input",
-        placeholder="🎤 Click mic and speak...",
-    )
+    # Voice command input with form
+    with st.form("voice_form"):
+        voice_input = st.text_input(
+            "Voice command",
+            key="voice_input",
+            placeholder="e.g., dashboard, map, doctors...",
+        )
+        submit_btn = st.form_submit_button("Go ↵", use_container_width=True)
 
-    # Process voice command
-    if voice_input:
-        cmd = voice_input.lower().strip()
-        page_found = False
+        if submit_btn and voice_input:
+            cmd = voice_input.lower().strip()
+            page_found = False
 
-        # Map voice commands to pages
-        if any(w in cmd for w in ["dashboard", "home", "main"]):
-            st.session_state.page_nav = "Dashboard"
-            page_found = True
-        elif any(w in cmd for w in ["map", "pakistan", "geo"]):
-            st.session_state.page_nav = "Pakistan Map"
-            page_found = True
-        elif any(w in cmd for w in ["clinic", "floor", "today", "queue"]):
-            st.session_state.page_nav = "Clinic Floor"
-            page_found = True
-        elif any(w in cmd for w in ["doctor", "scorecard", "doctors"]):
-            st.session_state.page_nav = "Doctor Scorecards"
-            page_found = True
-        elif any(w in cmd for w in ["intelligence", "analytics", "ai", "smart"]):
-            st.session_state.page_nav = "Intelligence Hub"
-            page_found = True
-        elif any(w in cmd for w in ["campaign", "reminder", "outreach"]):
-            st.session_state.page_nav = "Campaign Builder"
-            page_found = True
-        elif any(w in cmd for w in ["shift", "schedule", "timing"]):
-            st.session_state.page_nav = "Shift Intelligence"
-            page_found = True
-        elif any(w in cmd for w in ["compare", "city", "benchmark", "versus"]):
-            st.session_state.page_nav = "City vs City"
-            page_found = True
-        elif any(w in cmd for w in ["executive", "summary", "ceo", "report"]):
-            st.session_state.page_nav = "Executive Summary"
-            page_found = True
+            if any(w in cmd for w in ["dashboard", "home", "main"]):
+                st.session_state.page_nav = "Dashboard"
+                page_found = True
+            elif any(w in cmd for w in ["map", "pakistan", "geo"]):
+                st.session_state.page_nav = "Pakistan Map"
+                page_found = True
+            elif any(w in cmd for w in ["clinic", "floor", "today", "queue"]):
+                st.session_state.page_nav = "Clinic Floor"
+                page_found = True
+            elif any(w in cmd for w in ["doctor", "scorecard", "doctors"]):
+                st.session_state.page_nav = "Doctor Scorecards"
+                page_found = True
+            elif any(w in cmd for w in ["intelligence", "analytics", "ai", "smart"]):
+                st.session_state.page_nav = "Intelligence Hub"
+                page_found = True
+            elif any(w in cmd for w in ["campaign", "reminder", "outreach"]):
+                st.session_state.page_nav = "Campaign Builder"
+                page_found = True
+            elif any(w in cmd for w in ["shift", "schedule", "timing"]):
+                st.session_state.page_nav = "Shift Intelligence"
+                page_found = True
+            elif any(w in cmd for w in ["compare", "city", "benchmark", "versus"]):
+                st.session_state.page_nav = "City vs City"
+                page_found = True
+            elif any(w in cmd for w in ["executive", "summary", "ceo", "report"]):
+                st.session_state.page_nav = "Executive Summary"
+                page_found = True
 
-        if page_found:
-            st.success(f"🎤 Navigating to: {st.session_state.page_nav}")
-            # Clear the input after processing
-            st.session_state.voice_input = ""
+            if page_found:
+                st.success(f"🎤 Navigating to: {st.session_state.page_nav}")
 
-    # Voice control JavaScript
+    # Floating mic button with better JS
     voice_js = """
     <script>
-    // Wait for page to load
-    window.onload = function() {
-        // Find the text input
-        const inputs = document.querySelectorAll('input[type="text"]');
-        const voiceInput = Array.from(inputs).find(i => i.placeholder.includes('Click mic') || i.ariaLabel === 'voice_input');
+    document.addEventListener('DOMContentLoaded', function() {
+        const hasSpeechAPI = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
         
-        if (voiceInput) {
-            // Create floating mic button
+        if (hasSpeechAPI) {
             const micBtn = document.createElement('button');
             micBtn.innerHTML = '🎤';
-            micBtn.title = 'Click to speak';
+            micBtn.id = 'floating-mic';
+            micBtn.title = 'Click to speak (Chrome/Edge/Brave)';
             micBtn.style.cssText = 'position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:#0d9488; border:none; color:white; font-size:24px; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3); z-index:9999;';
             document.body.appendChild(micBtn);
             
-            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                const recognition = new SpeechRecognition();
-                recognition.lang = 'en-US';
-                recognition.continuous = false;
-                recognition.interimResults = false;
-                
-                micBtn.onclick = function() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            
+            let isListening = false;
+            
+            micBtn.onclick = function() {
+                if (!isListening) {
+                    isListening = true;
                     micBtn.style.background = '#ef4444';
-                    micBtn.innerHTML = '🎙️';
                     recognition.start();
-                };
-                
-                recognition.onresult = function(event) {
-                    const transcript = event.results[0][0].transcript;
+                }
+            };
+            
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                // Find the voice input field by placeholder
+                const inputs = document.querySelectorAll('input[type="text"]');
+                const voiceInput = Array.from(inputs).find(i => i.placeholder && i.placeholder.includes('e.g.'));
+                if (voiceInput) {
                     voiceInput.value = transcript;
-                    voiceInput.dispatchEvent(new Event('change', {bubbles: true}));
-                    micBtn.style.background = '#0d9488';
-                    micBtn.innerHTML = '🎤';
-                };
-                
-                recognition.onerror = function() {
-                    micBtn.style.background = '#0d9488';
-                    micBtn.innerHTML = '🎤';
-                };
-                
-                recognition.onend = function() {
-                    micBtn.style.background = '#0d9488';
-                    micBtn.innerHTML = '🎤';
-                };
-            } else {
-                micBtn.title = 'Voice not supported in this browser';
-                micBtn.style.opacity = '0.5';
-            }
+                    voiceInput.focus();
+                    micBtn.style.background = '#14ffec';
+                    setTimeout(() => { 
+                        micBtn.style.background = '#0d9488'; 
+                        isListening = false;
+                    }, 500);
+                }
+            };
+            
+            recognition.onerror = function() {
+                micBtn.style.background = '#f59e0b';
+                setTimeout(() => { 
+                    micBtn.style.background = '#0d9488'; 
+                    isListening = false;
+                }, 1000);
+            };
         }
-    };
+    });
     </script>
     """
     st.markdown(voice_js, unsafe_allow_html=True)
