@@ -205,7 +205,7 @@ def kpi(col, label, val, delta=None, fmt=None):
         display = f"{val:.1f}%"
     else:
         display = f"{val:,}"
-    delta_color = "var(--red)" if delta and delta < 0 else "var(--teal-neon)"
+    delta_color = "var(--red)" if delta and delta < 0 else "#14ffec"
     dhtml = (
         f"<div style='color:{delta_color};font-size:.85rem;margin-top:4px;'>{delta:+.1f}% vs avg</div>"
         if delta is not None
@@ -270,8 +270,8 @@ if page == "Dashboard":
         font_color="#e2e8f0",
         coloraxis_showscale=False,
         margin=dict(t=20, b=40),
-        yaxis=dict(gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")),
-        xaxis=dict(tickfont=dict(color="var(--text-muted)")),
+        yaxis=dict(gridcolor="#1e3a35", tickfont=dict(color="#94a3b8")),
+        xaxis=dict(tickfont=dict(color="#94a3b8")),
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -294,7 +294,7 @@ if page == "Dashboard":
             x=vol.month,
             y=vol.total,
             name="All",
-            line=dict(color="var(--teal-dim)", width=2),
+            line=dict(color="#0a6b68", width=2),
             fill="tozeroy",
             fillcolor="rgba(13,148,136,0.1)",
         )
@@ -304,7 +304,7 @@ if page == "Dashboard":
             x=vol.month,
             y=vol.completed,
             name="Completed",
-            line=dict(color="var(--teal-neon)", width=3),
+            line=dict(color="#14ffec", width=3),
         )
     )
     fig2.update_layout(
@@ -312,10 +312,10 @@ if page == "Dashboard":
         paper_bgcolor="#0a0f0d",
         font_family="DM Sans",
         font_color="#e2e8f0",
-        legend=dict(orientation="h", y=1.1, font=dict(color="var(--text-muted)")),
+        legend=dict(orientation="h", y=1.1, font=dict(color="#94a3b8")),
         margin=dict(t=20, b=40),
-        yaxis=dict(gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")),
-        xaxis=dict(tickfont=dict(color="var(--text-muted)")),
+        yaxis=dict(gridcolor="#1e3a35", tickfont=dict(color="#94a3b8")),
+        xaxis=dict(tickfont=dict(color="#94a3b8")),
     )
     st.plotly_chart(fig2, use_container_width=True)
 
@@ -329,33 +329,53 @@ elif page == "Pakistan Map":
     city_rev = get_city_revenue()
     max_rev = max(city_rev.values()) if city_rev else 1
 
+    city_coords = {
+        "Karachi": (24.86, 67.01),
+        "Lahore": (31.55, 74.35),
+        "Islamabad": (33.72, 73.06),
+        "Peshawar": (34.01, 71.57),
+        "Multan": (30.20, 71.47),
+    }
+
+    geo_df = pd.DataFrame(
+        [
+            {
+                "city": city,
+                "lat": coords[0],
+                "lon": coords[1],
+                "revenue": city_rev.get(city, 0),
+            }
+            for city, coords in city_coords.items()
+        ]
+    )
+    fig = px.scatter_geo(
+        geo_df,
+        lat="lat",
+        lon="lon",
+        size="revenue",
+        color="revenue",
+        color_continuous_scale=["#0d2626", "#0d9488", "#14ffec"],
+        hover_name="city",
+        size_max=30,
+        projection="natural earth",
+    )
+    fig.update_layout(
+        plot_bgcolor="#0a0f0d",
+        paper_bgcolor="#0a0f0d",
+        geo=dict(
+            bgcolor="#0a0f0d",
+            showland=True,
+            landcolor="#1e3a35",
+            showocean=True,
+            oceancolor="#0d1411",
+            showcountries=True,
+            countrycolor="#134e4a",
+        ),
+    )
+
     col1, col2 = st.columns([2, 1])
     with col1:
-        svg_path = "assets/pakistan_map.svg"
-        try:
-            with open(svg_path, "r") as f:
-                svg_content = f.read()
-            for city, rev in city_rev.items():
-                glow_id = f"glow-{city}"
-                text_id = f"rev-{city}"
-                intensity = min(rev / max_rev, 1)
-                if intensity > 0.7:
-                    fill = "var(--teal-neon)"
-                elif intensity > 0.4:
-                    fill = "var(--teal)"
-                elif intensity > 0.2:
-                    fill = "var(--teal-dark)"
-                else:
-                    fill = "var(--teal-dim)"
-                svg_content = svg_content.replace(
-                    f'id="{glow_id}"', f'id="{glow_id}" style="fill:{fill}"'
-                )
-                svg_content = svg_content.replace(
-                    f'id="{text_id}"', f'id="{text_id}"'
-                ).replace(f"₨ 0", f"₨{rev / 1e6:.1f}M")
-            st.markdown(svg_content, unsafe_allow_html=True)
-        except:
-            st.info("Loading map...")
+        st.plotly_chart(fig, use_container_width=True)
 
     with col2:
         st.markdown("### City Performance")
@@ -409,7 +429,7 @@ elif page == "Clinic Floor":
                         <div style="font-size:0.85rem;color:var(--text-muted);">{time}</div>
                         <div style="font-weight:600;color:var(--teal-light);">{row["doctor_name"]}</div>
                         <div style="font-size:0.8rem;color:var(--text-dim);">{row["department"]}</div>
-                        <div style="font-size:0.75rem;margin-top:4px;color:{"var(--teal-neon)" if row["status"] == "completed" else "var(--amber)" if row["status"] == "scheduled" else "var(--red)"};">{row["status"].upper()}</div>
+                        <div style="font-size:0.75rem;margin-top:4px;color:{"#14ffec" if row["status"] == "completed" else "var(--amber)" if row["status"] == "scheduled" else "var(--red)"};">{row["status"].upper()}</div>
                     </div>
                     """,
                         unsafe_allow_html=True,
@@ -475,7 +495,7 @@ elif page == "Doctor Scorecards":
                         r=values + [values[0]],
                         theta=categories + [categories[0]],
                         fill="toself",
-                        line_color="var(--teal-neon)",
+                        line_color="#14ffec",
                         fillcolor="rgba(20,255,236,0.3)",
                         name=row["doctor_name"],
                     )
@@ -485,8 +505,8 @@ elif page == "Doctor Scorecards":
                         radialaxis=dict(
                             visible=True,
                             range=[0, 1],
-                            tickfont=dict(color="var(--text-muted)"),
-                            gridcolor="var(--border)",
+                            tickfont=dict(color="#94a3b8"),
+                            gridcolor="#1e3a35",
                         ),
                         bgcolor="transparent",
                     ),
@@ -521,13 +541,10 @@ elif page == "Intelligence Hub":
 
     with tab1:
         st.markdown("### Reminder ROI Calculator")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            remind_count = st.number_input("Patients to remind", 10, 5000, 100)
-        with c2:
-            historical_ns = df[df.status == "no_show"].shape[0] / len(df) * 100
-        with c3:
-            avg_fee = df[df.status == "completed"]["fee_charged"].mean()
+        remind_count = st.number_input("Patients to remind", 10, 5000, 100)
+
+        historical_ns = df[df.status == "no_show"].shape[0] / len(df) * 100
+        avg_fee = df[df.status == "completed"]["fee_charged"].mean()
 
         recovered = remind_count * (historical_ns / 100) * 0.5
         revenue_saved = recovered * avg_fee
@@ -604,10 +621,8 @@ elif page == "Intelligence Hub":
             paper_bgcolor="#0a0f0d",
             font_color="#e2e8f0",
             coloraxis_showscale=False,
-            yaxis=dict(tickfont=dict(color="var(--text-muted)")),
-            xaxis=dict(
-                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
-            ),
+            yaxis=dict(tickfont=dict(color="#94a3b8")),
+            xaxis=dict(gridcolor="#1e3a35", tickfont=dict(color="#94a3b8")),
             margin=dict(t=30, b=20),
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -644,7 +659,7 @@ elif page == "Intelligence Hub":
             df[df.department.isin(["Pediatrics", "General"])]
             .groupby("month")
             .size()
-            .reset_index()
+            .reset_index(name="count")
         )
         fig = px.line(
             pediatrics,
@@ -667,10 +682,8 @@ elif page == "Intelligence Hub":
             paper_bgcolor="#0a0f0d",
             font_color="#e2e8f0",
             margin=dict(t=30, b=40),
-            yaxis=dict(
-                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
-            ),
-            xaxis=dict(tickfont=dict(color="var(--text-muted)")),
+            yaxis=dict(gridcolor="#1e3a35", tickfont=dict(color="#94a3b8")),
+            xaxis=dict(tickfont=dict(color="#94a3b8")),
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -703,31 +716,29 @@ elif page == "Intelligence Hub":
                 x=daily_ns["appt_date"],
                 y=daily_ns["ns_rate"],
                 mode="lines+markers",
-                line=dict(color="var(--teal)", width=2),
+                line=dict(color="#0d9488", width=2),
                 name="Daily Rate",
             )
         )
         fig.add_hline(
             y=threshold,
             line_dash="dash",
-            line_color="var(--red)",
+            line_color="#ef4444",
             annotation_text="2 Std Dev",
         )
         fig.add_hline(
             y=mean_ns,
             line_dash="dot",
-            line_color="var(--teal-neon)",
+            line_color="#14ffec",
             annotation_text="Mean",
         )
         fig.update_layout(
             title="Daily No-Show Rate with Anomaly Detection",
-            plot_bgcolor="transparent",
-            paper_bgcolor="transparent",
+            plot_bgcolor="#0a0f0d",
+            paper_bgcolor="#0a0f0d",
             font_color="#e2e8f0",
-            yaxis=dict(
-                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
-            ),
-            xaxis=dict(tickfont=dict(color="var(--text-muted)")),
+            yaxis=dict(gridcolor="#1e3a35", tickfont=dict(color="#94a3b8")),
+            xaxis=dict(tickfont=dict(color="#94a3b8")),
             margin=dict(t=30, b=40),
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -799,22 +810,26 @@ elif page == "Campaign Builder":
         (df.appt_date >= pd.to_datetime(start_date))
         & (df.appt_date <= pd.to_datetime(end_date))
     ].copy()
-    campaign_df["risk_score"] = np.where(
-        campaign_df["is_new_patient"] == 1,
-        campaign_df["no_show_rate"] * 1.5 if "no_show_rate" in campaign_df else 30,
-        campaign_df["no_show_rate"] if "no_show_rate" in campaign_df else 15,
-    )
-    campaign_df["no_show_rate"] = (
+
+    patient_ns_rate = (
         df.groupby("patient_id")["status"]
         .apply(lambda x: (x == "no_show").mean() * 100)
-        .reindex(campaign_df["patient_id"])
-        .values
+        .reset_index()
+    )
+    patient_ns_rate.columns = ["patient_id", "no_show_rate"]
+    campaign_df = campaign_df.merge(patient_ns_rate, on="patient_id", how="left")
+    campaign_df["no_show_rate"] = campaign_df["no_show_rate"].fillna(15)
+
+    campaign_df["risk_score"] = np.where(
+        campaign_df["is_new_patient"] == 1,
+        campaign_df["no_show_rate"] * 1.5,
+        campaign_df["no_show_rate"],
     )
 
     patients = (
         campaign_df.groupby("patient_id")
         .agg(
-            name=("patient_id", "first"),
+            patient_id=("patient_id", "first"),
             city=("city", "first"),
             department=("department", "first"),
             no_show_rate=("no_show_rate", "first"),
@@ -822,6 +837,10 @@ elif page == "Campaign Builder":
         )
         .reset_index()
     )
+
+    patients_info = load_patients()[["patient_id", "name"]]
+    patients = patients.merge(patients_info, on="patient_id", how="left")
+
     patients["risk_score"] = patients["no_show_rate"].fillna(15) * np.where(
         patients["upcoming"] > 3, 1.2, 1
     )
@@ -870,10 +889,8 @@ elif page == "Shift Intelligence":
             plot_bgcolor="#0a0f0d",
             paper_bgcolor="#0a0f0d",
             font_color="#e2e8f0",
-            yaxis=dict(
-                gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")
-            ),
-            xaxis=dict(tickfont=dict(color="var(--text-muted)"), title="Hour of Day"),
+            yaxis=dict(gridcolor="#1e3a35", tickfont=dict(color="#94a3b8")),
+            xaxis=dict(tickfont=dict(color="#94a3b8"), title="Hour of Day"),
             margin=dict(t=30, b=40),
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -902,8 +919,8 @@ elif page == "Shift Intelligence":
         paper_bgcolor="#0a0f0d",
         font_color="#e2e8f0",
         coloraxis_showscale=False,
-        yaxis=dict(gridcolor="var(--border)", tickfont=dict(color="var(--text-muted)")),
-        xaxis=dict(tickfont=dict(color="var(--text-muted)"), title="Hour"),
+        yaxis=dict(gridcolor="#1e3a35", tickfont=dict(color="#94a3b8")),
+        xaxis=dict(tickfont=dict(color="#94a3b8"), title="Hour"),
         margin=dict(t=30, b=40),
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -929,12 +946,12 @@ elif page == "City vs City":
         cdf = df[df.city == city]
         return {
             "appointments": len(cdf),
-            "revenue": cdf[df.status == "completed"]["fee_charged"].sum(),
+            "revenue": cdf[cdf.status == "completed"]["fee_charged"].sum(),
             "completion": (cdf.status == "completed").mean() * 100,
             "noshow": (cdf.status == "no_show").mean() * 100,
             "clinics": cdf.clinic_name.nunique(),
             "doctors": cdf.doctor_name.nunique(),
-            "avg_fee": cdf[df.status == "completed"]["fee_charged"].mean(),
+            "avg_fee": cdf[cdf.status == "completed"]["fee_charged"].mean(),
         }
 
     m1 = get_city_metrics(city1)
@@ -972,7 +989,7 @@ elif page == "City vs City":
             or (m == "noshow" and v1 < v2)
             else "▼"
         )
-        color = "var(--teal-neon)" if winner == "▲" else "var(--red)"
+        color = "#14ffec" if winner == "▲" else "var(--red)"
 
         if m in ["revenue", "avg_fee"]:
             fmt = f"₨{v1:,.0f}"
@@ -1008,13 +1025,13 @@ elif page == "City vs City":
                 name=city1,
                 x=dept_comp.department,
                 y=dept_comp[city1],
-                marker_color="var(--teal)",
+                marker_color="#0d9488",
             ),
             go.Bar(
                 name=city2,
                 x=dept_comp.department,
                 y=dept_comp[city2],
-                marker_color="var(--teal-neon)",
+                marker_color="#14ffec",
             ),
         ]
     )
@@ -1024,7 +1041,7 @@ elif page == "City vs City":
         paper_bgcolor="#0a0f0d",
         font_color="#e2e8f0",
         margin=dict(t=30, b=40),
-        legend=dict(font=dict(color="var(--text-muted)")),
+        legend=dict(font=dict(color="#94a3b8")),
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -1138,7 +1155,7 @@ elif page == "Executive Summary":
             paper_bgcolor="#0a0f0d",
             font_color="#e2e8f0",
             margin=dict(t=20, b=30),
-            yaxis=dict(tickformat="₨{:.0f}", gridcolor="var(--border)"),
+            yaxis=dict(tickformat="₨{:.0f}", gridcolor="#1e3a35"),
         )
         st.plotly_chart(fig, use_container_width=True)
     with c2:
@@ -1158,7 +1175,7 @@ elif page == "Executive Summary":
             paper_bgcolor="#0a0f0d",
             font_color="#e2e8f0",
             margin=dict(t=20, b=30),
-            xaxis=dict(gridcolor="var(--border)"),
+            xaxis=dict(gridcolor="#1e3a35"),
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -1191,11 +1208,7 @@ if predict_btn:
         proba = model.predict_proba(inp)[0][1] * 100
 
         color = (
-            "var(--red)"
-            if proba > 30
-            else "var(--amber)"
-            if proba > 15
-            else "var(--teal-neon)"
+            "var(--red)" if proba > 30 else "var(--amber)" if proba > 15 else "#14ffec"
         )
         level = (
             "HIGH RISK 🔴"
