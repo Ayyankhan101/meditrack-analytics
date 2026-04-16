@@ -148,6 +148,14 @@ with st.sidebar:
     st.markdown("## 🏥 MediTrack")
     st.markdown("### Command Center")
     st.markdown("---")
+
+    # Handle voice navigation from session state
+    if "page_nav" in st.session_state and st.session_state.page_nav:
+        default_page = st.session_state.page_nav
+        st.session_state.page_nav = None  # Clear after use
+    else:
+        default_page = "Dashboard"
+
     st.markdown("**Navigation**")
     page = st.radio(
         "Go to",
@@ -163,6 +171,30 @@ with st.sidebar:
             "Executive Summary",
         ],
         label_visibility="collapsed",
+        index=[
+            "Dashboard",
+            "Pakistan Map",
+            "Clinic Floor",
+            "Doctor Scorecards",
+            "Intelligence Hub",
+            "Campaign Builder",
+            "Shift Intelligence",
+            "City vs City",
+            "Executive Summary",
+        ].index(default_page)
+        if default_page
+        in [
+            "Dashboard",
+            "Pakistan Map",
+            "Clinic Floor",
+            "Doctor Scorecards",
+            "Intelligence Hub",
+            "Campaign Builder",
+            "Shift Intelligence",
+            "City vs City",
+            "Executive Summary",
+        ]
+        else 0,
     )
     st.markdown("---")
     cities = st.multiselect(
@@ -192,6 +224,111 @@ with st.sidebar:
     )
     pred_city = st.selectbox("City", sorted(df_all.city.unique()), key="pc")
     predict_btn = st.button("Predict Risk", use_container_width=True)
+    st.markdown("---")
+    st.markdown("**🎤 Voice Navigation**")
+
+    # Hidden text input for voice commands - JavaScript will populate this
+    voice_input = st.text_input(
+        "Say a command (e.g., 'dashboard', 'map', 'doctors')",
+        key="voice_input",
+        placeholder="🎤 Click mic and speak...",
+    )
+
+    # Process voice command
+    if voice_input:
+        cmd = voice_input.lower().strip()
+        page_found = False
+
+        # Map voice commands to pages
+        if any(w in cmd for w in ["dashboard", "home", "main"]):
+            st.session_state.page_nav = "Dashboard"
+            page_found = True
+        elif any(w in cmd for w in ["map", "pakistan", "geo"]):
+            st.session_state.page_nav = "Pakistan Map"
+            page_found = True
+        elif any(w in cmd for w in ["clinic", "floor", "today", "queue"]):
+            st.session_state.page_nav = "Clinic Floor"
+            page_found = True
+        elif any(w in cmd for w in ["doctor", "scorecard", "doctors"]):
+            st.session_state.page_nav = "Doctor Scorecards"
+            page_found = True
+        elif any(w in cmd for w in ["intelligence", "analytics", "ai", "smart"]):
+            st.session_state.page_nav = "Intelligence Hub"
+            page_found = True
+        elif any(w in cmd for w in ["campaign", "reminder", "outreach"]):
+            st.session_state.page_nav = "Campaign Builder"
+            page_found = True
+        elif any(w in cmd for w in ["shift", "schedule", "timing"]):
+            st.session_state.page_nav = "Shift Intelligence"
+            page_found = True
+        elif any(w in cmd for w in ["compare", "city", "benchmark", "versus"]):
+            st.session_state.page_nav = "City vs City"
+            page_found = True
+        elif any(w in cmd for w in ["executive", "summary", "ceo", "report"]):
+            st.session_state.page_nav = "Executive Summary"
+            page_found = True
+
+        if page_found:
+            st.success(f"🎤 Navigating to: {st.session_state.page_nav}")
+            # Clear the input after processing
+            st.session_state.voice_input = ""
+
+    # Voice control JavaScript
+    voice_js = """
+    <script>
+    // Wait for page to load
+    window.onload = function() {
+        // Find the text input
+        const inputs = document.querySelectorAll('input[type="text"]');
+        const voiceInput = Array.from(inputs).find(i => i.placeholder.includes('Click mic') || i.ariaLabel === 'voice_input');
+        
+        if (voiceInput) {
+            // Create floating mic button
+            const micBtn = document.createElement('button');
+            micBtn.innerHTML = '🎤';
+            micBtn.title = 'Click to speak';
+            micBtn.style.cssText = 'position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:#0d9488; border:none; color:white; font-size:24px; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3); z-index:9999;';
+            document.body.appendChild(micBtn);
+            
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'en-US';
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                
+                micBtn.onclick = function() {
+                    micBtn.style.background = '#ef4444';
+                    micBtn.innerHTML = '🎙️';
+                    recognition.start();
+                };
+                
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    voiceInput.value = transcript;
+                    voiceInput.dispatchEvent(new Event('change', {bubbles: true}));
+                    micBtn.style.background = '#0d9488';
+                    micBtn.innerHTML = '🎤';
+                };
+                
+                recognition.onerror = function() {
+                    micBtn.style.background = '#0d9488';
+                    micBtn.innerHTML = '🎤';
+                };
+                
+                recognition.onend = function() {
+                    micBtn.style.background = '#0d9488';
+                    micBtn.innerHTML = '🎤';
+                };
+            } else {
+                micBtn.title = 'Voice not supported in this browser';
+                micBtn.style.opacity = '0.5';
+            }
+        }
+    };
+    </script>
+    """
+    st.markdown(voice_js, unsafe_allow_html=True)
 
 # ── Filter data ───────────────────────────────────────────────────────────────
 df = df_all[df_all.city.isin(cities) & df_all.department.isin(depts)].copy()
