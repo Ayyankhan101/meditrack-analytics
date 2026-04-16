@@ -508,8 +508,9 @@ elif page == "Pakistan Map":
             oceancolor="#0d1411",
             showcountries=True,
             countrycolor="#134e4a",
-            center={"lat": 30, "lon": 70},
             projection="mercator",
+            lataxis_range=[23, 37],
+            lonaxis_range=[60, 78],
         ),
     )
 
