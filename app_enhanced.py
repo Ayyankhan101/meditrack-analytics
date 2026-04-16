@@ -1357,8 +1357,12 @@ elif page == "Executive Summary":
             .sort_values("fee_charged", ascending=True)
             .tail(5)
         )
-        fig = px.barh(
-            dept_rev, x="fee_charged", y="department", title="Top Departments"
+        fig = px.bar(
+            dept_rev,
+            x="fee_charged",
+            y="department",
+            title="Top Departments",
+            orientation="h",
         )
         fig.update_layout(
             plot_bgcolor="#0a0f0d",
