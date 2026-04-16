@@ -494,7 +494,8 @@ elif page == "Pakistan Map":
         color_continuous_scale=["#0d2626", "#0d9488", "#14ffec"],
         hover_name="city",
         size_max=30,
-        projection="natural earth",
+        scope="asia",
+        fitbounds="locations",
     )
     fig.update_layout(
         plot_bgcolor="#0a0f0d",
@@ -507,6 +508,8 @@ elif page == "Pakistan Map":
             oceancolor="#0d1411",
             showcountries=True,
             countrycolor="#134e4a",
+            center=dict(lat=30, lon=70),
+            projection="mercator",
         ),
     )
 
